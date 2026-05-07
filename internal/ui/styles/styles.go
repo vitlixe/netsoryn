@@ -222,15 +222,24 @@ func ServiceBadge(state string) string {
 func DockerStateBadge(state string) string {
 	switch state {
 	case "running":
-		return BadgeRunning.Render("▶ running")
+		return BadgeRunning.Render("● running")
 	case "exited":
 		return BadgeStopped.Render("■ exited")
+	case "dead":
+		return BadgeFailed.Render("■ dead")
 	case "paused":
 		return BadgeWarning.Render("⏸ paused")
 	case "restarting":
-		return BadgeWarning.Render("↺ restarting")
+		return BadgeWarning.Render("↻ restarting")
+	case "created":
+		return Muted.Render("○ created")
+	case "removing":
+		return BadgeWarning.Render("⊗ removing")
 	default:
-		return Muted.Render("· " + state)
+		if state == "" {
+			return Muted.Render("? unknown")
+		}
+		return Muted.Render("? " + state)
 	}
 }
 

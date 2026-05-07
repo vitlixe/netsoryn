@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/vitlixe/netsoryn/internal/collectors"
 	"github.com/vitlixe/netsoryn/internal/config"
@@ -24,8 +24,10 @@ type dockerDataMsg struct {
 
 type Docker struct {
 	cfg       *config.Config
-	table     table.Model
 	data      collectors.DockerData
+	rows      []collectors.ContainerStat
+	cursor    int
+	offset    int
 	err       error
 	keys      keys.NavKeyMap
 	filter    string
@@ -37,16 +39,9 @@ type Docker struct {
 }
 
 func NewDocker(cfg *config.Config) *Docker {
-	t := table.New(
-		table.WithColumns(dockerColumns(80)),
-		table.WithFocused(true),
-		table.WithHeight(20),
-		table.WithStyles(tableStyles()),
-	)
 	return &Docker{
-		cfg:   cfg,
-		table: t,
-		keys:  keys.DefaultNavKeyMap(),
+		cfg:  cfg,
+		keys: keys.DefaultNavKeyMap(),
 	}
 }
 
@@ -59,8 +54,6 @@ func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ContentSizeMsg:
 		d.width = msg.Width
 		d.height = msg.Height
-		d.table.SetHeight(msg.Height - 4)
-		d.table.SetColumns(dockerColumns(msg.Width))
 
 	case dockerDataMsg:
 		d.loaded = true
@@ -107,20 +100,58 @@ func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			d.filterBuf.Reset()
 			d.rebuildRows()
 			return d, nil
+		case key.Matches(msg, d.keys.Up):
+			d.moveCursor(-1)
+			return d, nil
+		case key.Matches(msg, d.keys.Down):
+			d.moveCursor(1)
+			return d, nil
 		case key.Matches(msg, d.keys.Top):
-			d.table.GotoTop()
+			d.cursor = 0
+			d.offset = 0
 			return d, nil
 		case key.Matches(msg, d.keys.Bottom):
-			d.table.GotoBottom()
+			if len(d.rows) > 0 {
+				d.cursor = len(d.rows) - 1
+				d.clampOffset()
+			}
 			return d, nil
 		}
-
-		var cmd tea.Cmd
-		d.table, cmd = d.table.Update(msg)
-		return d, cmd
 	}
 
 	return d, nil
+}
+
+func (d *Docker) moveCursor(delta int) {
+	d.cursor += delta
+	if d.cursor < 0 {
+		d.cursor = 0
+	}
+	if d.cursor >= len(d.rows) {
+		d.cursor = len(d.rows) - 1
+	}
+	d.clampOffset()
+}
+
+func (d *Docker) clampOffset() {
+	visH := d.visibleHeight()
+	if d.cursor < d.offset {
+		d.offset = d.cursor
+	}
+	if d.cursor >= d.offset+visH {
+		d.offset = d.cursor - visH + 1
+	}
+	if d.offset < 0 {
+		d.offset = 0
+	}
+}
+
+func (d *Docker) visibleHeight() int {
+	h := d.height - 4
+	if h < 1 {
+		h = 1
+	}
+	return h
 }
 
 func (d *Docker) View() string {
@@ -147,11 +178,68 @@ func (d *Docker) View() string {
 		filter = "\n  Filter: " + styles.ValueAccent.Render(d.filter)
 	}
 
-	return fmt.Sprintf("%s%s\n%s", header, filter, d.table.View())
+	return fmt.Sprintf("%s%s\n%s", header, filter, d.renderTable())
+}
+
+func (d *Docker) renderTable() string {
+	cols := dockerColWidths(d.width)
+
+	// header
+	headerCells := []string{
+		styles.TableHeader.Width(cols[0]).Render("ID"),
+		styles.TableHeader.Width(cols[1]).Render("Name"),
+		styles.TableHeader.Width(cols[2]).Render("Image"),
+		styles.TableHeader.Width(cols[3]).Render("State"),
+		styles.TableHeader.Width(cols[4]).Render("Ports"),
+	}
+	lines := []string{lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
+
+	// rows
+	visH := d.visibleHeight()
+	end := d.offset + visH
+	if end > len(d.rows) {
+		end = len(d.rows)
+	}
+	for i := d.offset; i < end; i++ {
+		lines = append(lines, d.renderRow(d.rows[i], cols, i == d.cursor))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func (d *Docker) renderRow(c collectors.ContainerStat, cols [5]int, selected bool) string {
+	cell := func(s string, w int) string {
+		s = styles.Truncate(s, w)
+		if selected {
+			return styles.TableSelected.Width(w).MaxWidth(w).Render(s)
+		}
+		return styles.TableRow.Width(w).MaxWidth(w).Render(s)
+	}
+
+	// State cell: badge with colors when not selected; plain label on selected row
+	// (selected background fights badge foreground — plain text is cleaner)
+	var stateCell string
+	if selected {
+		stateCell = styles.TableSelected.Width(cols[3]).MaxWidth(cols[3]).Render(dockerStateLabel(c.State))
+	} else {
+		// Width-only style preserves DockerStateBadge ANSI colors
+		stateCell = lipgloss.NewStyle().Width(cols[3]).MaxWidth(cols[3]).Render(
+			styles.DockerStateBadge(c.State),
+		)
+	}
+
+	parts := []string{
+		cell(c.ID, cols[0]),
+		cell(c.Name, cols[1]),
+		cell(c.Image, cols[2]),
+		stateCell,
+		cell(c.Ports, cols[4]),
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
 }
 
 func (d *Docker) rebuildRows() {
-	rows := make([]table.Row, 0, len(d.data.Containers))
+	d.rows = d.rows[:0]
 	for _, c := range d.data.Containers {
 		if d.filter != "" {
 			needle := strings.ToLower(d.filter)
@@ -160,28 +248,49 @@ func (d *Docker) rebuildRows() {
 				continue
 			}
 		}
-		rows = append(rows, table.Row{
-			styles.Truncate(c.ID, 12),
-			styles.Truncate(c.Name, 20),
-			styles.Truncate(c.Image, 25),
-			styles.DockerStateBadge(c.State),
-			styles.Truncate(c.Ports, 30),
-		})
+		d.rows = append(d.rows, c)
 	}
-	d.table.SetRows(rows)
+	// keep cursor in range
+	if d.cursor >= len(d.rows) {
+		d.cursor = len(d.rows) - 1
+	}
+	if d.cursor < 0 {
+		d.cursor = 0
+	}
+	d.clampOffset()
 }
 
-func dockerColumns(w int) []table.Column {
+// dockerColWidths returns [5]int column widths for the current terminal width.
+func dockerColWidths(w int) [5]int {
 	portW := 30
 	if w > 120 {
-		portW = w - 75
+		portW = w - 77
 	}
-	return []table.Column{
-		{Title: "ID", Width: 12},
-		{Title: "Name", Width: 20},
-		{Title: "Image", Width: 25},
-		{Title: "State", Width: 14},
-		{Title: "Ports", Width: portW},
+	return [5]int{12, 20, 25, 16, portW}
+}
+
+// dockerStateLabel returns plain icon+text (no ANSI) for use in selected rows.
+func dockerStateLabel(state string) string {
+	switch state {
+	case "running":
+		return "● running"
+	case "exited":
+		return "■ exited"
+	case "dead":
+		return "■ dead"
+	case "paused":
+		return "⏸ paused"
+	case "restarting":
+		return "↻ restarting"
+	case "created":
+		return "○ created"
+	case "removing":
+		return "⊗ removing"
+	default:
+		if state == "" {
+			return "? unknown"
+		}
+		return "? " + state
 	}
 }
 
