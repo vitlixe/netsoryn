@@ -1,0 +1,10 @@
+/netsoryn
+dist/
+.claude/
+*.test
+*.out
+coverage.out
+coverage.html
+.env
+*.log
+.DS_Store
