@@ -16,6 +16,36 @@ make test    # run tests with race detector
 make lint    # run golangci-lint
 ```
 
+## Development builds
+
+**Quick dev build** — no ldflags, fast iteration:
+
+```bash
+go build -o /tmp/netsoryn-dev ./cmd/netsoryn
+/tmp/netsoryn-dev
+```
+
+Because no `-ldflags` are passed, `netsoryn version` reports `dev`. This is expected for local UI testing.
+
+**Build with git-derived version** (mirrors what CI produces):
+
+```bash
+make clean
+make build
+./dist/netsoryn version
+./dist/netsoryn
+```
+
+`make build` passes `-ldflags` with the output of `git describe --tags --always --dirty`. If HEAD is exactly on a tag and the working tree is clean, you get `v0.1.0`. Uncommitted changes append `-dirty`, e.g. `v0.1.0-dirty`.
+
+**Running tests:**
+
+```bash
+make test
+# or explicitly:
+go test ./... -race -timeout 60s
+```
+
 ## Making changes
 
 1. Fork the repo and create a branch from `main`.
