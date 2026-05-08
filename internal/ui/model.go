@@ -361,6 +361,15 @@ func (m RootModel) renderFooter() string {
 	if m.active == ViewProcesses {
 		hints = append(hints, hint{"s", "sort"})
 	}
+	if m.active == ViewNetwork {
+		hints = append(hints, hint{"h/l", "tabs"})
+	}
+	if m.active == ViewDNS {
+		hints = append(hints, hint{"n", "new query"})
+	}
+	if m.active == ViewHTTP {
+		hints = append(hints, hint{"n", "new check"})
+	}
 	hints = append(hints,
 		hint{"<tab>", "next view"},
 		hint{"?", "help"},

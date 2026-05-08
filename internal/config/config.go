@@ -23,14 +23,11 @@ type Config struct {
 	DefaultView     string        `mapstructure:"default_view"`
 	LogLevel        string        `mapstructure:"log_level"`
 	LogFile         string        `mapstructure:"log_file"`
-	ReadOnly        bool          `mapstructure:"read_only"`
-	RateLimit       int           `mapstructure:"rate_limit"`
 	HTTPChecks      []HTTPCheck   `mapstructure:"http_checks"`
 	DNSChecks       []DNSCheck    `mapstructure:"dns_checks"`
 	DockerSocket    string        `mapstructure:"docker_socket"`
 	ProcessLimit    int           `mapstructure:"process_limit"`
 	PortsListenOnly bool          `mapstructure:"ports_listen_only"`
-	Theme           string        `mapstructure:"theme"`
 }
 
 func Load(cfgFile string) (*Config, error) {
@@ -40,11 +37,8 @@ func Load(cfgFile string) (*Config, error) {
 	v.SetDefault("default_view", "dashboard")
 	v.SetDefault("log_level", "disabled")
 	v.SetDefault("log_file", "")
-	v.SetDefault("read_only", true)
-	v.SetDefault("rate_limit", 10)
 	v.SetDefault("process_limit", 50)
 	v.SetDefault("ports_listen_only", true)
-	v.SetDefault("theme", "default")
 
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)

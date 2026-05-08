@@ -13,12 +13,6 @@ log_level: disabled
 # Log file path (empty = stderr)
 log_file: ""
 
-# Read-only mode: prevents any write/restart operations
-read_only: true
-
-# Network rate limit for active checks (requests per second)
-rate_limit: 10
-
 # HTTP checks: list of URLs to monitor
 http_checks:
   - url: "https://example.com"
@@ -33,14 +27,6 @@ dns_checks:
       - "8.8.8.8:53"
       - "1.1.1.1:53"
 
-# SSH hosts: loaded from ~/.ssh/config by default
-# Override with explicit list:
-# ssh_hosts:
-#   - name: "prod-web"
-#     host: "192.168.1.10"
-#     user: "deploy"
-#     port: 22
-
 # Docker: socket path (empty = default)
 docker_socket: ""
 
@@ -49,6 +35,3 @@ process_limit: 50
 
 # Ports: show only listening ports (true) or all connections (false)
 ports_listen_only: true
-
-# Theme: default (auto-detects terminal colors)
-theme: default

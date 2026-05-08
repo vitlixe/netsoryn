@@ -50,6 +50,36 @@ func TestFooterTableViews_HasNavFilterNoSort(t *testing.T) {
 	}
 }
 
+func TestFooterNetwork_HasTabsHint(t *testing.T) {
+	footer := newTestModel(ViewNetwork).renderFooter()
+	if !strings.Contains(footer, "h/l") {
+		t.Errorf("Network footer should contain h/l tabs hint, got: %s", footer)
+	}
+	if !strings.Contains(footer, "tabs") {
+		t.Errorf("Network footer should contain tabs hint, got: %s", footer)
+	}
+}
+
+func TestFooterDNS_HasNewQueryHint(t *testing.T) {
+	footer := newTestModel(ViewDNS).renderFooter()
+	if !strings.Contains(footer, "n") {
+		t.Errorf("DNS footer should contain n hint, got: %s", footer)
+	}
+	if !strings.Contains(footer, "query") {
+		t.Errorf("DNS footer should contain query hint, got: %s", footer)
+	}
+}
+
+func TestFooterHTTP_HasNewCheckHint(t *testing.T) {
+	footer := newTestModel(ViewHTTP).renderFooter()
+	if !strings.Contains(footer, "n") {
+		t.Errorf("HTTP footer should contain n hint, got: %s", footer)
+	}
+	if !strings.Contains(footer, "check") {
+		t.Errorf("HTTP footer should contain check hint, got: %s", footer)
+	}
+}
+
 func TestFooterDNSHTTP_NoNavFilterSort(t *testing.T) {
 	for _, id := range []ViewID{ViewDNS, ViewHTTP} {
 		footer := newTestModel(id).renderFooter()

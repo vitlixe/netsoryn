@@ -16,7 +16,6 @@ type GlobalKeyMap struct {
 	View6   key.Binding
 	View7   key.Binding
 	View8   key.Binding
-	Refresh key.Binding
 }
 
 // DefaultGlobalKeyMap returns the default global key bindings.
@@ -46,10 +45,6 @@ func DefaultGlobalKeyMap() GlobalKeyMap {
 		View6: numKey("6"),
 		View7: numKey("7"),
 		View8: numKey("8"),
-		Refresh: key.NewBinding(
-			key.WithKeys("r"),
-			key.WithHelp("r", "refresh"),
-		),
 	}
 }
 
@@ -134,7 +129,6 @@ func HelpEntries() [][2]string {
 		{"/", "Filter"},
 		{"esc", "Clear filter / back"},
 		{"s", "Cycle sort column"},
-		{"r", "Force refresh"},
 		{"enter", "Expand detail"},
 		{"?", "Toggle help"},
 		{"q", "Quit"},

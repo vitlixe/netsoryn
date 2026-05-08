@@ -75,8 +75,6 @@ make build          # builds to dist/netsoryn
 make install        # installs to $GOPATH/bin
 ```
 
-### Homebrew (coming soon)
-
 ### Pre-built binaries
 
 Download from the [Releases](https://github.com/vitlixe/netsoryn/releases) page.
@@ -141,7 +139,6 @@ Key options:
 ```yaml
 refresh_interval: 2          # seconds between auto-refresh
 default_view: dashboard      # view on startup
-read_only: true              # prevent any write operations (default)
 process_limit: 50            # max processes to display
 ports_listen_only: true      # show only LISTEN sockets
 
@@ -158,10 +155,9 @@ Environment variables override config: prefix with `NETSORYN_` (e.g. `NETSORYN_R
 
 ## Design principles
 
-- **Read-only by default.** No writes, no restarts, no destructive actions without explicit confirmation.
+- **Read-only by default.** No writes, no restarts, no destructive actions.
 - **No root required for the basics.** CPU, RAM, disk, DNS, HTTP — all work without elevated privileges. Some features (all process details, low-numbered port ownership) may show partial data without root.
 - **Diagnostic only.** No exploit features, no brute-force, no stealth scanning, no firewall evasion.
-- **Rate-limited active checks.** HTTP and DNS checks respect configurable rate limits.
 
 ## Architecture
 

@@ -43,7 +43,6 @@ processes, services, Docker containers, DNS, HTTP endpoints and more.`,
 			p := tea.NewProgram(
 				ui.NewSplash(m),
 				tea.WithAltScreen(),
-				tea.WithMouseCellMotion(),
 			)
 
 			if _, err := p.Run(); err != nil {
@@ -56,7 +55,6 @@ processes, services, Docker containers, DNS, HTTP endpoints and more.`,
 	root.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: ~/.config/netsoryn/config.yaml)")
 
 	root.AddCommand(versionCmd())
-	root.AddCommand(checkCmd())
 
 	return root
 }
@@ -69,35 +67,6 @@ func versionCmd() *cobra.Command {
 			fmt.Printf("netsoryn %s\n", version)
 		},
 	}
-}
-
-// checkCmd is a non-interactive one-shot diagnostic suitable for CI/scripts.
-func checkCmd() *cobra.Command {
-	var (
-		urlFlag    string
-		domainFlag string
-	)
-
-	cmd := &cobra.Command{
-		Use:    "check",
-		Short:  "Run a single diagnostic check and print JSON output",
-		Long:   `Run a one-shot check (HTTP or DNS) and print the result as JSON to stdout.`,
-		Hidden: true, // not yet implemented — will be available in a future release
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if urlFlag == "" && domainFlag == "" {
-				return fmt.Errorf("provide --url or --domain")
-			}
-			cfg, _ := config.Load("")
-			_ = cfg
-			// TODO: implement JSON output for headless check mode
-			fmt.Println("check mode: coming soon")
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&urlFlag, "url", "", "URL to check (HTTP/TLS)")
-	cmd.Flags().StringVar(&domainFlag, "domain", "", "Domain to resolve (DNS)")
-	return cmd
 }
 
 func setupLogging(cfg *config.Config) {

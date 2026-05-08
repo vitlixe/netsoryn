@@ -27,7 +27,7 @@ func NewSplash(main RootModel) Splash {
 func (s Splash) Init() tea.Cmd {
 	return tea.Batch(
 		s.main.Init(),
-		tea.Tick(1500*time.Millisecond, func(_ time.Time) tea.Msg {
+		tea.Tick(500*time.Millisecond, func(_ time.Time) tea.Msg {
 			return splashDoneMsg{}
 		}),
 	)
