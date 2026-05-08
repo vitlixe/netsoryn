@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MinWidth  = 100
+	MinWidth  = 105
 	MinHeight = 28
 )
 
