@@ -16,25 +16,6 @@ import (
 // chromeRows = header(1) + tabbar(1) + border-top(1) + border-bottom(1) + footer(1)
 const chromeRows = 5
 
-// viewMaxWidth returns the maximum content width for a view.
-// On terminals wider than this value the content is centered inside the box.
-func viewMaxWidth(id ViewID) int {
-	switch id {
-	case ViewDashboard, ViewDNS, ViewHTTP:
-		return 120
-	case ViewPorts, ViewServices:
-		return 150
-	default: // ViewProcesses, ViewNetwork, ViewDocker
-		return 160
-	}
-}
-
-// viewContentWidth returns min(availableW, viewMaxWidth(id)).
-// This is the width sent to each view via ContentSizeMsg.
-func viewContentWidth(id ViewID, availableW int) int {
-	return min(availableW, viewMaxWidth(id))
-}
-
 // ViewID identifies a top-level view.
 type ViewID int
 
@@ -144,10 +125,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if innerH < 1 {
 			innerH = 1
 		}
+		sizeMsg := views.ContentSizeMsg{Width: innerW, Height: innerH}
 		cmds := make([]tea.Cmd, numViews)
 		for i, v := range m.viewModels {
-			contentW := viewContentWidth(ViewID(i), innerW)
-			updated, cmd := v.Update(views.ContentSizeMsg{Width: contentW, Height: innerH})
+			updated, cmd := v.Update(sizeMsg)
 			m.viewModels[i] = updated
 			cmds[i] = cmd
 		}
@@ -276,11 +257,6 @@ func (m RootModel) renderBox(content string, innerH int) string {
 		lines = append(lines, "")
 	}
 
-	// Center content horizontally when the terminal is wider than the view's max width.
-	innerW := m.width - 2
-	leftPad := (innerW - viewContentWidth(m.active, innerW)) / 2
-	leftPadStr := strings.Repeat(" ", leftPad)
-
 	var sb strings.Builder
 	sb.WriteString(topBorder)
 	sb.WriteByte('\n')
@@ -289,11 +265,8 @@ func (m RootModel) renderBox(content string, innerH int) string {
 		if i < len(lines) {
 			line = lines[i]
 		}
-		if leftPad > 0 {
-			line = leftPadStr + line
-		}
 		lineW := lipgloss.Width(line)
-		pad := innerW - lineW
+		pad := m.width - 2 - lineW
 		if pad < 0 {
 			pad = 0
 		}
