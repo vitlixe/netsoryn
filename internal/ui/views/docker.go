@@ -198,12 +198,33 @@ func (d *Docker) renderTable() string {
 
 	// rows
 	visH := d.visibleHeight()
+	nRows := len(d.rows)
 	end := d.offset + visH
-	if end > len(d.rows) {
-		end = len(d.rows)
+	if end > nRows {
+		end = nRows
 	}
 	for i := d.offset; i < end; i++ {
 		lines = append(lines, d.renderRow(d.rows[i], cols, i == d.cursor))
+	}
+
+	// scroll indicators — replace first/last data row, no extra lines added
+	// up: d.offset > 0 means rows above the visible window are hidden.
+	// down: last visible row index (offset+visH-1) < last row index.
+	up := d.offset > 0
+	bottom := d.offset + visH - 1
+	down := nRows > 0 && bottom < nRows-1
+	if (up || down) && len(lines) > 1 {
+		first, last := 1, len(lines)-1
+		if up && down && first == last {
+			lines[first] = styles.Muted.Render("  ↑/↓ more")
+		} else {
+			if up {
+				lines[first] = styles.Muted.Render("  ↑ more")
+			}
+			if down {
+				lines[last] = styles.Muted.Render("  ↓ more")
+			}
+		}
 	}
 
 	return strings.Join(lines, "\n")

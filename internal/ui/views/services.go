@@ -25,6 +25,7 @@ type svcDataMsg struct {
 type Services struct {
 	cfg       *config.Config
 	table     table.Model
+	topRow    int
 	data      collectors.ServiceData
 	err       error
 	keys      keys.NavKeyMap
@@ -111,14 +112,17 @@ func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return s, nil
 		case key.Matches(msg, s.keys.Top):
 			s.table.GotoTop()
+			s.topRow = syncTopRow(s.topRow, s.table.Cursor(), s.table.Height())
 			return s, nil
 		case key.Matches(msg, s.keys.Bottom):
 			s.table.GotoBottom()
+			s.topRow = syncTopRow(s.topRow, s.table.Cursor(), s.table.Height())
 			return s, nil
 		}
 
 		var cmd tea.Cmd
 		s.table, cmd = s.table.Update(msg)
+		s.topRow = syncTopRow(s.topRow, s.table.Cursor(), s.table.Height())
 		return s, cmd
 	}
 
@@ -153,7 +157,7 @@ func (s *Services) View() string {
 		filter = "\n  Filter: " + styles.ValueAccent.Render(s.filter)
 	}
 
-	return fmt.Sprintf("%s%s\n%s", header, filter, s.table.View())
+	return fmt.Sprintf("%s%s\n%s", header, filter, wrapTableWithScrollHints(s.table, s.topRow))
 }
 
 func (s *Services) rebuildRows() {
@@ -186,7 +190,8 @@ func (s *Services) rebuildRows() {
 		}
 		rows = append(rows, row)
 	}
-	s.table.SetRows(rows)
+	setTableRows(&s.table, rows)
+	s.topRow = clampTopRow(s.topRow, len(rows), s.table.Height())
 }
 
 // serviceDisplayStatus picks the most informative status string available.

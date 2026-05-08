@@ -380,7 +380,6 @@ func (m RootModel) renderFooter() string {
 	for _, h := range hints {
 		parts = append(parts, shortcutHint(h.k, h.v, styles.ColorTabBg))
 	}
-
 	bar := lipgloss.NewStyle().Background(styles.ColorTabBg).Render("  ") +
 		strings.Join(parts, lipgloss.NewStyle().Background(styles.ColorTabBg).Render("  "))
 	pad := max(0, m.width-lipgloss.Width(bar))

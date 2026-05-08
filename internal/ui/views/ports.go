@@ -25,6 +25,7 @@ type portsDataMsg struct {
 type Ports struct {
 	cfg       *config.Config
 	table     table.Model
+	topRow    int
 	data      []collectors.PortStat
 	err       error
 	keys      keys.NavKeyMap
@@ -114,14 +115,17 @@ func (p *Ports) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return p, nil
 		case key.Matches(msg, p.keys.Top):
 			p.table.GotoTop()
+			p.topRow = syncTopRow(p.topRow, p.table.Cursor(), p.table.Height())
 			return p, nil
 		case key.Matches(msg, p.keys.Bottom):
 			p.table.GotoBottom()
+			p.topRow = syncTopRow(p.topRow, p.table.Cursor(), p.table.Height())
 			return p, nil
 		}
 
 		var cmd tea.Cmd
 		p.table, cmd = p.table.Update(msg)
+		p.topRow = syncTopRow(p.topRow, p.table.Cursor(), p.table.Height())
 		return p, cmd
 	}
 
@@ -148,7 +152,7 @@ func (p *Ports) View() string {
 		filter = "\n  Filter: " + styles.ValueAccent.Render(p.filter)
 	}
 
-	return fmt.Sprintf("%s%s\n%s", header, filter, p.table.View())
+	return fmt.Sprintf("%s%s\n%s", header, filter, wrapTableWithScrollHints(p.table, p.topRow))
 }
 
 func (p *Ports) rebuildRows() {
@@ -176,7 +180,8 @@ func (p *Ports) rebuildRows() {
 			styles.Truncate(port.Process, 20),
 		})
 	}
-	p.table.SetRows(rows)
+	setTableRows(&p.table, rows)
+	p.topRow = clampTopRow(p.topRow, len(rows), p.table.Height())
 }
 
 func portsColumns(w int) []table.Column {

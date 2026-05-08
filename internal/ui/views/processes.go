@@ -38,6 +38,7 @@ var sortNames = [numProcSorts]string{"CPU%", "MEM%", "PID", "Name"}
 type Processes struct {
 	cfg       *config.Config
 	table     table.Model
+	topRow    int
 	data      []collectors.ProcessStat
 	err       error
 	keys      keys.NavKeyMap
@@ -137,14 +138,17 @@ func (p *Processes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return p, nil
 		case key.Matches(msg, p.keys.Top):
 			p.table.GotoTop()
+			p.topRow = syncTopRow(p.topRow, p.table.Cursor(), p.table.Height())
 			return p, nil
 		case key.Matches(msg, p.keys.Bottom):
 			p.table.GotoBottom()
+			p.topRow = syncTopRow(p.topRow, p.table.Cursor(), p.table.Height())
 			return p, nil
 		}
 
 		var cmd tea.Cmd
 		p.table, cmd = p.table.Update(msg)
+		p.topRow = syncTopRow(p.topRow, p.table.Cursor(), p.table.Height())
 		return p, cmd
 	}
 
@@ -169,7 +173,7 @@ func (p *Processes) View() string {
 		header += "  Filter: " + styles.ValueAccent.Render(p.filter)
 	}
 
-	return fmt.Sprintf("%s\n%s", header, p.table.View())
+	return fmt.Sprintf("%s\n%s", header, wrapTableWithScrollHints(p.table, p.topRow))
 }
 
 func (p *Processes) sortData() {
@@ -212,7 +216,8 @@ func (p *Processes) rebuildRows() {
 			fmt.Sprintf("%d", proc.Threads),
 		})
 	}
-	p.table.SetRows(rows)
+	setTableRows(&p.table, rows)
+	p.topRow = clampTopRow(p.topRow, len(rows), p.table.Height())
 }
 
 func procColumns(w int) []table.Column {

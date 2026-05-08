@@ -156,3 +156,12 @@ func TestFooterSortHint_OnlyInProcesses(t *testing.T) {
 		}
 	}
 }
+
+func TestFooterNoMoreAnywhere(t *testing.T) {
+	for id := ViewID(0); id < numViews; id++ {
+		footer := newTestModel(id).renderFooter()
+		if strings.Contains(footer, "more") {
+			t.Errorf("view %d footer should not contain scroll indicators, got: %s", id, footer)
+		}
+	}
+}

@@ -30,19 +30,21 @@ const (
 )
 
 type Network struct {
-	cfg        *config.Config
-	ifaceTable table.Model
-	connTable  table.Model
-	data       collectors.NetworkData
-	err        error
-	keys       keys.NavKeyMap
-	activeTab  netTab
-	filter     string
-	filtering  bool
-	filterBuf  strings.Builder
-	width      int
-	height     int
-	loaded     bool
+	cfg         *config.Config
+	ifaceTable  table.Model
+	connTable   table.Model
+	topRowIface int
+	topRowConn  int
+	data        collectors.NetworkData
+	err         error
+	keys        keys.NavKeyMap
+	activeTab   netTab
+	filter      string
+	filtering   bool
+	filterBuf   strings.Builder
+	width       int
+	height      int
+	loaded      bool
 }
 
 func NewNetwork(cfg *config.Config) *Network {
@@ -51,6 +53,16 @@ func NewNetwork(cfg *config.Config) *Network {
 		ifaceTable: table.New(table.WithColumns(ifaceColumns(80)), table.WithFocused(true), table.WithHeight(10), table.WithStyles(tableStyles())),
 		connTable:  table.New(table.WithColumns(connColumns(80)), table.WithFocused(false), table.WithHeight(10), table.WithStyles(tableStyles())),
 		keys:       keys.DefaultNavKeyMap(),
+	}
+}
+
+func (n *Network) syncFocus() {
+	if n.activeTab == netTabIfaces {
+		n.ifaceTable.Focus()
+		n.connTable.Blur()
+	} else {
+		n.connTable.Focus()
+		n.ifaceTable.Blur()
 	}
 }
 
@@ -63,9 +75,12 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ContentSizeMsg:
 		n.width = msg.Width
 		n.height = msg.Height
-		half := (msg.Height - 5) / 2
-		n.ifaceTable.SetHeight(half)
-		n.connTable.SetHeight(half)
+		tableH := msg.Height - 3
+		if tableH < 3 {
+			tableH = 3
+		}
+		n.ifaceTable.SetHeight(tableH)
+		n.connTable.SetHeight(tableH)
 		n.ifaceTable.SetColumns(ifaceColumns(msg.Width))
 		n.connTable.SetColumns(connColumns(msg.Width))
 
@@ -120,11 +135,13 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.String() == "h":
 			if n.activeTab > 0 {
 				n.activeTab--
+				n.syncFocus()
 			}
 			return n, nil
 		case msg.String() == "l":
 			if int(n.activeTab) < 1 {
 				n.activeTab++
+				n.syncFocus()
 			}
 			return n, nil
 		}
@@ -132,8 +149,10 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		if n.activeTab == netTabIfaces {
 			n.ifaceTable, cmd = n.ifaceTable.Update(msg)
+			n.topRowIface = syncTopRow(n.topRowIface, n.ifaceTable.Cursor(), n.ifaceTable.Height())
 		} else {
 			n.connTable, cmd = n.connTable.Update(msg)
+			n.topRowConn = syncTopRow(n.topRowConn, n.connTable.Cursor(), n.connTable.Height())
 		}
 		return n, cmd
 	}
@@ -165,9 +184,9 @@ func (n *Network) View() string {
 		hint = "  Filter: " + styles.ValueAccent.Render(n.filter)
 	}
 
-	content := n.ifaceTable.View()
+	content := wrapTableWithScrollHints(n.ifaceTable, n.topRowIface)
 	if n.activeTab == netTabConns {
-		content = n.connTable.View()
+		content = wrapTableWithScrollHints(n.connTable, n.topRowConn)
 	}
 
 	return fmt.Sprintf("%s\n%s\n%s", tabBar, hint, content)
@@ -186,7 +205,8 @@ func (n *Network) rebuildIfaceRows() {
 			styles.Truncate(flags, 20),
 		})
 	}
-	n.ifaceTable.SetRows(rows)
+	setTableRows(&n.ifaceTable, rows)
+	n.topRowIface = clampTopRow(n.topRowIface, len(rows), n.ifaceTable.Height())
 }
 
 func (n *Network) rebuildConnRows() {
@@ -208,7 +228,8 @@ func (n *Network) rebuildConnRows() {
 			styles.Truncate(c.ProcessName, 16),
 		})
 	}
-	n.connTable.SetRows(rows)
+	setTableRows(&n.connTable, rows)
+	n.topRowConn = clampTopRow(n.topRowConn, len(rows), n.connTable.Height())
 }
 
 func ifaceColumns(w int) []table.Column {
