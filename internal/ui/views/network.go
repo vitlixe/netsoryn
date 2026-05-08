@@ -223,14 +223,22 @@ func ifaceColumns(w int) []table.Column {
 }
 
 func connColumns(w int) []table.Column {
-	_ = w
+	// Fixed columns: Proto(5)+Local(22)+Remote(22)+State(12)+PID(7) = 68.
+	// Process column fills the remainder, clamped to [8, 16].
+	const fixed = 68
+	processW := w - fixed
+	if processW < 8 {
+		processW = 8
+	} else if processW > 16 {
+		processW = 16
+	}
 	return []table.Column{
 		{Title: "Proto", Width: 5},
 		{Title: "Local", Width: 22},
 		{Title: "Remote", Width: 22},
 		{Title: "State", Width: 12},
 		{Title: "PID", Width: 7},
-		{Title: "Process", Width: 16},
+		{Title: "Process", Width: processW},
 	}
 }
 

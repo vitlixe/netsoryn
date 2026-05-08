@@ -69,26 +69,37 @@ func (d *Dashboard) View() string {
 	if w < 40 {
 		w = 80
 	}
-	gap := dashGap(w)
-	colW := (w - gap) / 2
 
-	left := lipgloss.JoinVertical(lipgloss.Left,
-		d.renderCPU(colW),
-		"",
-		d.renderMemory(colW),
-		"",
-		d.renderLoad(colW),
-	)
+	lay := dashboardLayout(w)
+	if !lay.wide {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			d.renderCPU(w),
+			"",
+			d.renderMemory(w),
+			"",
+			d.renderDisks(w),
+			"",
+			d.renderLoad(w),
+		)
+	}
 
+	cpuBlock := d.renderCPU(lay.leftW)
+	systemBlock := d.renderLoad(lay.leftW) // hostname truncated to fit left column
+
+	left := lipgloss.JoinVertical(lipgloss.Left, cpuBlock, "", systemBlock)
 	right := lipgloss.JoinVertical(lipgloss.Left,
-		d.renderDisks(colW),
+		d.renderMemory(lay.rightW),
+		"",
+		d.renderDisks(lay.rightW),
 	)
 
-	spacer := strings.Repeat(" ", gap)
+	gp := strings.Repeat(" ", lay.gap)
+	rp := strings.Repeat(" ", rightPad)
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(colW).Render(left),
-		spacer,
-		lipgloss.NewStyle().Width(colW).Render(right),
+		lipgloss.NewStyle().Width(lay.leftW).Render(left),
+		gp,
+		lipgloss.NewStyle().Width(lay.rightW).Render(right),
+		rp,
 	)
 }
 
@@ -142,6 +153,13 @@ func (d *Dashboard) renderMemory(w int) string {
 func (d *Dashboard) renderLoad(w int) string {
 	uptime := fmtUptime(d.data.UptimeSeconds)
 
+	// "  Host      " prefix is 12 visual cols; truncate hostname to fit within w.
+	const hostPfxW = 12
+	hostname := d.data.Hostname
+	if w > hostPfxW && lipgloss.Width(hostname) > w-hostPfxW {
+		hostname = styles.Truncate(hostname, w-hostPfxW)
+	}
+
 	return strings.Join([]string{
 		styles.Title.Render("  System"),
 		fmt.Sprintf("  Load avg  %s  %s  %s",
@@ -150,7 +168,7 @@ func (d *Dashboard) renderLoad(w int) string {
 			styles.ValueAccent.Render(fmt.Sprintf("%.2f", d.data.LoadAvg15)),
 		),
 		fmt.Sprintf("  Uptime    %s", styles.Muted.Render(uptime)),
-		fmt.Sprintf("  Host      %s", styles.ValueAccent.Render(d.data.Hostname)),
+		fmt.Sprintf("  Host      %s", styles.ValueAccent.Render(hostname)),
 	}, "\n")
 }
 
@@ -201,17 +219,44 @@ func tickDash(interval time.Duration) tea.Cmd {
 	})
 }
 
-// dashGap returns the horizontal gap between the two dashboard columns.
-// It grows with terminal width so the layout breathes on wider displays.
-func dashGap(termW int) int {
-	switch {
-	case termW >= 160:
-		return 8
-	case termW >= 130:
-		return 6
-	default:
-		return 4
+// cpuAnchorW is the visual width of a single CPU row:
+// 2(indent) + 8(label) + 1(sep) + 24(bar, capped) + 2(sep) + 6(pct) = 43.
+// Moving it left requires shrinking CPU rows or the bar cap.
+const cpuAnchorW = 43
+
+// rightMin is the minimum right-column width that keeps Memory/Disk bars
+// at or above their minBar values without line overflow.
+const rightMin = 48
+
+// layoutGap is the gap between left and right columns.
+const layoutGap = 2
+
+// rightPad is the padding on the right side of the wide layout.
+// It keeps the right column away from the terminal border/frame.
+// No left padding: the left column starts at the content edge.
+const rightPad = 2
+
+type dashLayout struct {
+	wide   bool
+	leftW  int
+	rightW int
+	gap    int
+}
+
+// dashboardLayout returns column widths for the given inner content width.
+// Visual structure: [leftW][gap][rightW][rightPad] = w.
+// Wide layout is chosen when rightW >= rightMin; otherwise single-column narrow.
+func dashboardLayout(w int) dashLayout {
+	rightW := w - cpuAnchorW - layoutGap - rightPad
+	if rightW >= rightMin {
+		return dashLayout{
+			wide:   true,
+			leftW:  cpuAnchorW,
+			rightW: rightW,
+			gap:    layoutGap,
+		}
 	}
+	return dashLayout{wide: false}
 }
 
 // dashSectionLayout computes aligned label and bar widths for a dashboard section.

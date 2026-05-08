@@ -263,9 +263,17 @@ func (d *Docker) rebuildRows() {
 }
 
 // dockerColWidths returns [5]int column widths for the current terminal width.
+// Fixed columns: ID(12)+Name(20)+Image(25)+State(16) = 73.
+// Ports column fills the remainder, clamped to [10, 30]; above 120 it grows freely.
 func dockerColWidths(w int) [5]int {
-	portW := 30
-	if w > 120 {
+	const fixed = 73
+	portW := w - fixed
+	switch {
+	case portW < 10:
+		portW = 10
+	case portW > 30 && w <= 120:
+		portW = 30
+	case w > 120:
 		portW = w - 77
 	}
 	return [5]int{12, 20, 25, 16, portW}

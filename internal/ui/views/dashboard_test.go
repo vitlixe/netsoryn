@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -10,31 +11,49 @@ import (
 	"github.com/vitlixe/netsoryn/internal/config"
 )
 
-// ── dashGap ──────────────────────────────────────────────────────────────────
+// ── dashboardLayout ───────────────────────────────────────────────────────────
 
-func TestDashGap(t *testing.T) {
+func TestDashboardLayout(t *testing.T) {
+	// threshold = cpuAnchorW(43) + layoutGap(2) + rightMin(48) + rightPad(2) = 95
+	// rightW = w - cpuAnchorW - layoutGap - rightPad = w - 47
 	tests := []struct {
-		termW    int
-		wantGap  int
-		wantColW int
+		w        int
+		wideWant bool
+		leftW    int // only checked when wide
+		rightW   int
+		gap      int
 	}{
-		{100, 4, 48},
-		// innerW at min terminal (105): 105-2=103 → colW=(103-4)/2=49
-		{103, 4, 49},
-		{129, 4, 62},
-		{130, 6, 62},
-		{159, 6, 76},
-		{160, 8, 76},
-		{200, 8, 96},
+		// Below threshold: narrow
+		{88, false, 0, 0, 0},
+		{94, false, 0, 0, 0},
+		// At threshold: wide (rightW = 95-47 = 48 = rightMin exactly)
+		{95, true, 43, 48, 2},
+		// Representative widths used in production (innerW = terminalW - 2)
+		{99, true, 43, 52, 2},   // terminal 101
+		{100, true, 43, 53, 2},  // terminal 102
+		{120, true, 43, 73, 2},  // terminal 122
+		{160, true, 43, 113, 2}, // terminal 162
 	}
 	for _, tt := range tests {
-		g := dashGap(tt.termW)
-		colW := (tt.termW - g) / 2
-		if g != tt.wantGap {
-			t.Errorf("dashGap(%d) = %d, want %d", tt.termW, g, tt.wantGap)
+		lay := dashboardLayout(tt.w)
+		if lay.wide != tt.wideWant {
+			t.Errorf("dashboardLayout(%d).wide = %v, want %v", tt.w, lay.wide, tt.wideWant)
+			continue
 		}
-		if colW != tt.wantColW {
-			t.Errorf("dashGap(%d): colW = %d, want %d", tt.termW, colW, tt.wantColW)
+		if !lay.wide {
+			continue
+		}
+		if lay.leftW != tt.leftW {
+			t.Errorf("dashboardLayout(%d).leftW = %d, want %d", tt.w, lay.leftW, tt.leftW)
+		}
+		if lay.rightW != tt.rightW {
+			t.Errorf("dashboardLayout(%d).rightW = %d, want %d", tt.w, lay.rightW, tt.rightW)
+		}
+		if lay.gap != tt.gap {
+			t.Errorf("dashboardLayout(%d).gap = %d, want %d", tt.w, lay.gap, tt.gap)
+		}
+		if lay.rightW <= lay.leftW {
+			t.Errorf("dashboardLayout(%d): rightW=%d should be > leftW=%d", tt.w, lay.rightW, lay.leftW)
 		}
 	}
 }
@@ -46,14 +65,14 @@ func TestDashSectionLayout(t *testing.T) {
 		colW, baseLabelW, sizeW, minBar, maxBar int
 		wantLabelW, wantBarW                    int
 	}{
-		// CPU at minimum colW=49 (innerW=103 at termW=105, gap=4): (103-4)/2=49
-		{49, 8, 0, 10, 24, 8, 24}, // bar = 49-19=30 → capped 24
-		// Memory at minimum colW=49 (sizeW=17)
-		{49, 8, 17, 10, 24, 8, 11}, // bar = 49-38=11
-		// Disk at minimum colW=49 (sizeW=15, minBar=4)
-		{49, 12, 15, 4, 20, 12, 9}, // bar = 49-40=9
-		// Disk worst-case size (colW=49, sizeW=19, minBar=4)
-		{49, 12, 19, 4, 20, 12, 5}, // bar = 49-44=5
+		// CPU at wide breakpoint colW=48 (innerW=100, gap=4): (100-4)/2=48
+		{48, 8, 0, 10, 24, 8, 24}, // bar = 48-19=29 → capped 24
+		// Memory at wide breakpoint colW=48 (sizeW=17)
+		{48, 8, 17, 10, 24, 8, 10}, // bar = 48-38=10
+		// Disk at wide breakpoint colW=48 (sizeW=15, minBar=4)
+		{48, 12, 15, 4, 20, 12, 8}, // bar = 48-40=8
+		// Disk worst-case size (colW=48, sizeW=19, minBar=4)
+		{48, 12, 19, 4, 20, 12, 4}, // bar = 48-44=4
 		// CPU wider terminal (colW=74, extra=(74-50)/16=1)
 		{74, 8, 0, 10, 24, 9, 24}, // labelW=9, bar capped at 24
 		// Disk wider (colW=74, sizeW=15, minBar=4)
@@ -179,9 +198,14 @@ func newTestDashboard() *Dashboard {
 	}
 }
 
-// minColW is colW at the minimum supported terminal width (105 cols):
-// innerW = 105 - 2 = 103; colW = (103 - dashGap(103)) / 2 = (103 - 4) / 2 = 49.
-const minColW = 49
+// minNarrowW is a test inner width below the wide layout threshold
+// (cpuAnchorW=43 + layoutGap=2 + rightMin=48 + rightPad=2 → threshold=95),
+// used to exercise the single-column path. The real minimum terminal is
+// MinWidth=100 (innerW=98 ≥ 95), which is always wide.
+const minNarrowW = 88
+
+// minColW is the minimum right column width in the wide layout (= rightMin).
+const minColW = 48
 
 // ── no-wrap tests at colW=50 ─────────────────────────────────────────────────
 
@@ -195,15 +219,15 @@ func checkNoWrap(t *testing.T, section, out string, limit int) {
 }
 
 func TestRenderCPU_NoWrap(t *testing.T) {
-	checkNoWrap(t, "renderCPU(49)", newTestDashboard().renderCPU(minColW), minColW)
+	checkNoWrap(t, "renderCPU(minColW)", newTestDashboard().renderCPU(minColW), minColW)
 }
 
 func TestRenderMemory_NoWrap(t *testing.T) {
-	checkNoWrap(t, "renderMemory(49)", newTestDashboard().renderMemory(minColW), minColW)
+	checkNoWrap(t, "renderMemory(minColW)", newTestDashboard().renderMemory(minColW), minColW)
 }
 
 func TestRenderDisks_NoWrap(t *testing.T) {
-	checkNoWrap(t, "renderDisks(49)", newTestDashboard().renderDisks(minColW), minColW)
+	checkNoWrap(t, "renderDisks(minColW)", newTestDashboard().renderDisks(minColW), minColW)
 }
 
 // ── no-wrap tests at colW=72 (wider terminal ~150 cols) ──────────────────────
@@ -221,6 +245,112 @@ func TestRenderMemory_NoWrap_Wide(t *testing.T) {
 func TestRenderDisks_NoWrap_Wide(t *testing.T) {
 	const w = 72
 	checkNoWrap(t, "renderDisks(72)", newTestDashboard().renderDisks(w), w)
+}
+
+// ── narrow layout (single-column, innerW=88, below wide threshold 93) ────────
+
+func TestRenderCPU_NoWrap_Narrow(t *testing.T) {
+	checkNoWrap(t, "renderCPU(narrow)", newTestDashboard().renderCPU(minNarrowW), minNarrowW)
+}
+
+func TestRenderMemory_NoWrap_Narrow(t *testing.T) {
+	checkNoWrap(t, "renderMemory(narrow)", newTestDashboard().renderMemory(minNarrowW), minNarrowW)
+}
+
+func TestRenderDisks_NoWrap_Narrow(t *testing.T) {
+	checkNoWrap(t, "renderDisks(narrow)", newTestDashboard().renderDisks(minNarrowW), minNarrowW)
+}
+
+// TestDashboardView_WideNoWrap tests the full View() output in wide (two-column) mode
+// at several representative widths to ensure no line overflows its column.
+// w=99 is included to verify terminal width 101 (innerW=99) stays in wide layout.
+func TestDashboardView_WideNoWrap(t *testing.T) {
+	for _, w := range []int{99, 100, 108, 120, 140, 160, 200} {
+		d := newTestDashboard()
+		d.width = w
+		d.height = 40
+		out := d.View()
+		checkNoWrap(t, fmt.Sprintf("View(wide w=%d)", w), out, w)
+	}
+}
+
+// TestDashboardView_WideAsymmetric verifies that the right column (Memory+Disk)
+// is wider than the left column at several widths, and that a long hostname
+// does not expand the left anchor beyond cpuAnchorW.
+func TestDashboardView_WideAsymmetric(t *testing.T) {
+	for _, w := range []int{99, 120, 140, 160} {
+		lay := dashboardLayout(w)
+		if !lay.wide {
+			t.Errorf("dashboardLayout(%d) unexpectedly narrow", w)
+			continue
+		}
+		if lay.leftW != cpuAnchorW {
+			t.Errorf("w=%d: leftW=%d, want cpuAnchorW=%d", w, lay.leftW, cpuAnchorW)
+		}
+		if lay.rightW <= lay.leftW {
+			t.Errorf("w=%d: rightW=%d should be > leftW=%d", w, lay.rightW, lay.leftW)
+		}
+		if lay.gap != layoutGap {
+			t.Errorf("w=%d: gap=%d, want %d", w, lay.gap, layoutGap)
+		}
+
+		// Long hostname must not cause View() to overflow.
+		d := newTestDashboard()
+		d.data.Hostname = "Vitalijs-MacBook-Air.local"
+		d.width = w
+		d.height = 40
+		checkNoWrap(t, fmt.Sprintf("View(wide asymmetric w=%d)", w), d.View(), w)
+	}
+}
+
+// TestRenderLoad_NoWrap verifies that renderLoad respects the width limit
+// and truncates long hostnames rather than overflowing.
+func TestRenderLoad_NoWrap(t *testing.T) {
+	d := newTestDashboard()
+	d.data.Hostname = "very-long-hostname.internal.company.example.com" // 47 chars
+	const w = 43
+	out := d.renderLoad(w)
+	checkNoWrap(t, "renderLoad(long hostname)", out, w)
+}
+
+// TestDashboardView_WideNoWrap_LongHostname ensures a long hostname does not
+// cause overflow or push the right column out of bounds.
+func TestDashboardView_WideNoWrap_LongHostname(t *testing.T) {
+	for _, w := range []int{99, 100, 120, 140} {
+		d := newTestDashboard()
+		d.data.Hostname = "very-long-hostname.internal.company.example.com"
+		d.width = w
+		d.height = 40
+		out := d.View()
+		checkNoWrap(t, fmt.Sprintf("View(wide long-host w=%d)", w), out, w)
+	}
+}
+
+// TestDashboardView_NarrowNoWrap tests the full View() output in narrow mode.
+func TestDashboardView_NarrowNoWrap(t *testing.T) {
+	d := newTestDashboard()
+	d.width = minNarrowW
+	d.height = 40
+	out := d.View()
+	checkNoWrap(t, "View(narrow)", out, minNarrowW)
+}
+
+// TestDashboardView_NarrowOrder checks that sections appear in the expected order.
+func TestDashboardView_NarrowOrder(t *testing.T) {
+	d := newTestDashboard()
+	d.width = minNarrowW
+	d.height = 40
+	out := d.View()
+	cpuIdx := strings.Index(out, "CPU")
+	memIdx := strings.Index(out, "Memory")
+	diskIdx := strings.Index(out, "Disk")
+	sysIdx := strings.Index(out, "System")
+	if !(cpuIdx >= 0 && memIdx >= 0 && diskIdx >= 0 && sysIdx >= 0) {
+		t.Fatalf("narrow view missing sections: CPU=%d Memory=%d Disk=%d System=%d", cpuIdx, memIdx, diskIdx, sysIdx)
+	}
+	if !(cpuIdx < memIdx && memIdx < diskIdx && diskIdx < sysIdx) {
+		t.Errorf("narrow layout order wrong: CPU=%d Memory=%d Disk=%d System=%d", cpuIdx, memIdx, diskIdx, sysIdx)
+	}
 }
 
 // ── disk column alignment ─────────────────────────────────────────────────────
@@ -252,5 +382,25 @@ func TestRenderDisks_DistinctLabels(t *testing.T) {
 	}
 	if strings.Count(out, "Preboot") == 0 {
 		t.Error("expected 'Preboot' label in disk output")
+	}
+}
+
+// TestDashboardView_RightColumnNotHalfWidth verifies the layout is asymmetric:
+// the right column (Memory+Disk) is wider than the CPU-anchored left column.
+// This guards against regression to a 50/50 split where Memory appears
+// unnecessarily far from the left edge.
+func TestDashboardView_RightColumnNotHalfWidth(t *testing.T) {
+	for _, w := range []int{99, 100, 105, 120, 140, 160} {
+		lay := dashboardLayout(w)
+		if !lay.wide {
+			t.Errorf("w=%d: expected wide layout (threshold=%d)", w, cpuAnchorW+layoutGap+rightMin+rightPad)
+			continue
+		}
+		if lay.leftW != cpuAnchorW {
+			t.Errorf("w=%d: leftW=%d, want %d (cpuAnchorW)", w, lay.leftW, cpuAnchorW)
+		}
+		if lay.rightW <= lay.leftW {
+			t.Errorf("w=%d: rightW=%d ≤ leftW=%d (right column should be wider)", w, lay.rightW, lay.leftW)
+		}
 	}
 }

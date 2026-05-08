@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -38,5 +39,13 @@ func TestRenderSizeWarning_NoPanic(t *testing.T) {
 	sizes := [][2]int{{0, 0}, {1, 1}, {50, 10}, {80, 24}, {MinWidth, MinHeight}}
 	for _, s := range sizes {
 		renderSizeWarning(s[0], s[1]) // must not panic
+	}
+}
+
+func TestRenderSizeWarning_RequiredValues(t *testing.T) {
+	out := renderSizeWarning(80, 20)
+	want := fmt.Sprintf("%d x %d", MinWidth, MinHeight)
+	if !strings.Contains(out, want) {
+		t.Errorf("renderSizeWarning missing required size %q in output", want)
 	}
 }
