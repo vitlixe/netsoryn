@@ -213,6 +213,8 @@ func ServiceBadge(state string) string {
 		return BadgeFailed.Render("✖ " + state)
 	case "inactive", "stopped":
 		return BadgeStopped.Render("○ " + state)
+	case "", "unknown":
+		return Muted.Render("? unknown")
 	default:
 		return BadgeWarning.Render("◌ " + state)
 	}

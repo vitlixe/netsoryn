@@ -38,7 +38,7 @@ type Services struct {
 
 func NewServices(cfg *config.Config) *Services {
 	t := table.New(
-		table.WithColumns(svcColumns(80)),
+		table.WithColumns(svcColumns(80, "")),
 		table.WithFocused(true),
 		table.WithHeight(20),
 		table.WithStyles(tableStyles()),
@@ -60,7 +60,7 @@ func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s.width = msg.Width
 		s.height = msg.Height
 		s.table.SetHeight(msg.Height - 3)
-		s.table.SetColumns(svcColumns(msg.Width))
+		s.table.SetColumns(svcColumns(msg.Width, s.data.Platform))
 
 	case svcDataMsg:
 		s.loaded = true
@@ -157,6 +157,7 @@ func (s *Services) View() string {
 }
 
 func (s *Services) rebuildRows() {
+	s.table.SetColumns(svcColumns(s.width, s.data.Platform))
 	rows := make([]table.Row, 0, len(s.data.Services))
 	for _, svc := range s.data.Services {
 		if s.filter != "" {
@@ -164,26 +165,84 @@ func (s *Services) rebuildRows() {
 				continue
 			}
 		}
-
-		badge := styles.ServiceBadge(svc.SubState)
-		rows = append(rows, table.Row{
-			styles.Truncate(svc.Name, 35),
-			badge,
-			svc.ActiveState,
-			styles.Truncate(svc.Description, 40),
-		})
+		status := serviceStatusLabel(serviceDisplayStatus(svc))
+		var row table.Row
+		if s.data.Platform == "darwin" {
+			nameW := s.width - 12
+			if nameW < 20 {
+				nameW = 20
+			}
+			row = table.Row{
+				styles.Truncate(svc.Name, nameW),
+				status,
+			}
+		} else {
+			row = table.Row{
+				styles.Truncate(svc.Name, 35),
+				status,
+				svc.ActiveState,
+				styles.Truncate(svc.Description, 40),
+			}
+		}
+		rows = append(rows, row)
 	}
 	s.table.SetRows(rows)
 }
 
-func svcColumns(w int) []table.Column {
-	descW := 40
-	if w > 120 {
-		descW = w - 65
+// serviceDisplayStatus picks the most informative status string available.
+// SubState is most specific; falls back through ActiveState, LoadState, "unknown".
+func serviceDisplayStatus(svc collectors.ServiceStat) string {
+	if svc.SubState != "" {
+		return svc.SubState
+	}
+	if svc.ActiveState != "" {
+		return svc.ActiveState
+	}
+	if svc.LoadState != "" {
+		return svc.LoadState
+	}
+	return "unknown"
+}
+
+// serviceStatusLabel normalises a raw state string to a short, readable label.
+// It is always plain text — no ANSI styling — safe for use in table cells.
+func serviceStatusLabel(status string) string {
+	switch status {
+	case "running", "active":
+		return "running"
+	case "stopped", "inactive", "dead":
+		return "stopped"
+	case "failed":
+		return "failed"
+	case "", "unknown":
+		return "unknown"
+	default:
+		return status
+	}
+}
+
+// svcColumns returns platform-appropriate table columns.
+// Darwin/launchd uses a 2-column layout (Service + State) because launchd
+// provides no description and the active/substate distinction is redundant.
+// Linux/systemd uses a 4-column layout (Service, Status, Active, Description).
+func svcColumns(w int, platform string) []table.Column {
+	if platform == "darwin" {
+		nameW := w - 12
+		if nameW < 20 {
+			nameW = 20
+		}
+		return []table.Column{
+			{Title: "Service", Width: nameW},
+			{Title: "State", Width: 10},
+		}
+	}
+	descW := 20
+	if w > 67 {
+		descW = w - 57
 	}
 	return []table.Column{
 		{Title: "Service", Width: 35},
-		{Title: "Status", Width: 14},
+		{Title: "Status", Width: 10},
 		{Title: "Active", Width: 10},
 		{Title: "Description", Width: descW},
 	}
