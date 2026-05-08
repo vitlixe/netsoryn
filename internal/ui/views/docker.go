@@ -81,6 +81,8 @@ func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				d.filter = d.filterBuf.String()
 				d.rebuildRows()
+			case "/":
+				// ignore: re-pressing / during filter input is a no-op
 			default:
 				d.filterBuf.WriteString(msg.String())
 				d.filter = d.filterBuf.String()

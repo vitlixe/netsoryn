@@ -88,6 +88,8 @@ func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				s.filter = s.filterBuf.String()
 				s.rebuildRows()
+			case "/":
+				// ignore: re-pressing / during filter input is a no-op
 			default:
 				s.filterBuf.WriteString(msg.String())
 				s.filter = s.filterBuf.String()

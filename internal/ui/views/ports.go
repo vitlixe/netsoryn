@@ -91,6 +91,8 @@ func (p *Ports) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				p.filter = p.filterBuf.String()
 				p.rebuildRows()
+			case "/":
+				// ignore: re-pressing / during filter input is a no-op
 			default:
 				p.filterBuf.WriteString(msg.String())
 				p.filter = p.filterBuf.String()

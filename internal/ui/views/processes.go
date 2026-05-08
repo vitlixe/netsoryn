@@ -109,6 +109,8 @@ func (p *Processes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				p.filter = p.filterBuf.String()
 				p.rebuildRows()
+			case "/":
+				// ignore: re-pressing / during filter input is a no-op
 			default:
 				p.filterBuf.WriteString(msg.String())
 				p.filter = p.filterBuf.String()
@@ -161,11 +163,10 @@ func (p *Processes) View() string {
 		styles.Title.Render("Processes"),
 		styles.ValueAccent.Render(sortNames[p.sortBy]),
 	)
-	if p.filter != "" {
-		header += "  Filter: " + styles.ValueAccent.Render(p.filter)
-	}
 	if p.filtering {
 		header += "  Filter: " + styles.ValueAccent.Render(p.filterBuf.String()) + styles.Muted.Render("_")
+	} else if p.filter != "" {
+		header += "  Filter: " + styles.ValueAccent.Render(p.filter)
 	}
 
 	return fmt.Sprintf("%s\n%s", header, p.table.View())

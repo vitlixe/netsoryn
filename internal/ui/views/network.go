@@ -96,6 +96,8 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				n.filter = n.filterBuf.String()
 				n.rebuildConnRows()
+			case "/":
+				// ignore: re-pressing / during filter input is a no-op
 			default:
 				n.filterBuf.WriteString(msg.String())
 				n.filter = n.filterBuf.String()
@@ -157,11 +159,10 @@ func (n *Network) View() string {
 	tabBar := fmt.Sprintf("  %s  %s  %s", styles.Title.Render("Network"), tabIface, tabConn)
 
 	hint := styles.Muted.Render("  h/l: switch panel  /: filter")
-	if n.filter != "" {
-		hint = "  Filter: " + styles.ValueAccent.Render(n.filter)
-	}
 	if n.filtering {
 		hint = "  Filter: " + styles.ValueAccent.Render(n.filterBuf.String()) + styles.Muted.Render("_")
+	} else if n.filter != "" {
+		hint = "  Filter: " + styles.ValueAccent.Render(n.filter)
 	}
 
 	content := n.ifaceTable.View()
