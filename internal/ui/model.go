@@ -331,17 +331,41 @@ func (m RootModel) renderTabBar() string {
 	return bar
 }
 
+// viewsWithNav are views where j/k navigation is active.
+var viewsWithNav = map[ViewID]bool{
+	ViewProcesses: true,
+	ViewNetwork:   true,
+	ViewPorts:     true,
+	ViewServices:  true,
+	ViewDocker:    true,
+}
+
+// viewsWithFilter are views where / filter is active.
+var viewsWithFilter = map[ViewID]bool{
+	ViewProcesses: true,
+	ViewNetwork:   true,
+	ViewPorts:     true,
+	ViewServices:  true,
+	ViewDocker:    true,
+}
+
 func (m RootModel) renderFooter() string {
 	type hint struct{ k, v string }
-	hints := []hint{
-		{"j/k", "navigate"},
-		{"/", "filter"},
-		{"s", "sort"},
-		{"<tab>", "next view"},
-		{"r", "refresh"},
-		{"?", "help"},
-		{"q", "quit"},
+	var hints []hint
+	if viewsWithNav[m.active] {
+		hints = append(hints, hint{"j/k", "navigate"})
 	}
+	if viewsWithFilter[m.active] {
+		hints = append(hints, hint{"/", "filter"})
+	}
+	if m.active == ViewProcesses {
+		hints = append(hints, hint{"s", "sort"})
+	}
+	hints = append(hints,
+		hint{"<tab>", "next view"},
+		hint{"?", "help"},
+		hint{"q", "quit"},
+	)
 
 	var parts []string
 	for _, h := range hints {
@@ -377,16 +401,15 @@ func (m RootModel) renderHelp() string {
 		{"<1-8>", "Switch view"},
 		{"<tab>", "Next view"},
 		{"<shift+tab>", "Prev view"},
-		{"<j> / <k>", "Navigate down / up"},
+		{"<j> / <k>", "Navigate (list/table views)"},
 		{"<gg> / <G>", "Top / bottom"},
 		{"<ctrl+d/u>", "Page down / up"},
 	}
 	actions := []entry{
-		{"</>", "Filter"},
-		{"<esc>", "Clear filter"},
-		{"<s>", "Cycle sort column"},
-		{"<r>", "Force refresh"},
+		{"</>", "Filter (list/table views)"},
+		{"<s>", "Cycle sort column (Processes)"},
 		{"<enter>", "Select / expand"},
+		{"<esc>", "Clear filter / close"},
 		{"<?>", "Toggle this help"},
 		{"<q>", "Quit"},
 	}

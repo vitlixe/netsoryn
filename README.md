@@ -19,7 +19,7 @@
 │  Load avg  2.45  1.89  1.23                                         │
 │  Uptime    5d 3h 22m                                                │
 ╰─────────────────────────────────────────────────────────────────────╯
- j/k navigate   / filter   s sort   <tab> next view   ? help   q quit
+ <tab> next view   ? help   q quit
 ```
 
 ## Features
@@ -50,9 +50,8 @@
 | `h` / `l` | Switch sub-tabs (network view) |
 | `n` | New query (DNS / HTTP views) |
 | `D` | Remove first result (DNS / HTTP views) |
-| `r` | Force refresh |
 | `?` | Toggle help overlay |
-| `q` / `Ctrl+C` | Quit |
+| `q` | Quit |
 
 ## Installation
 
