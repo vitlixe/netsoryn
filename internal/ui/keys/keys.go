@@ -23,7 +23,7 @@ type GlobalKeyMap struct {
 func DefaultGlobalKeyMap() GlobalKeyMap {
 	return GlobalKeyMap{
 		Quit: key.NewBinding(
-			key.WithKeys("q", "ctrl+c"),
+			key.WithKeys("q"),
 			key.WithHelp("q", "quit"),
 		),
 		Help: key.NewBinding(

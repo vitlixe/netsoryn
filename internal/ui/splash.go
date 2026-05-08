@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -37,6 +38,9 @@ func (s Splash) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case splashDoneMsg:
 		return s.main, nil
 	case tea.KeyMsg:
+		if key.Matches(msg, s.main.globalKeys.Quit) {
+			return s, tea.Quit
+		}
 		return s.main, nil
 	case tea.WindowSizeMsg:
 		s.width = msg.Width
@@ -64,6 +68,9 @@ const logoW = 71
 func (s Splash) View() string {
 	if s.width == 0 {
 		return ""
+	}
+	if tooSmall(s.width, s.height) {
+		return renderSizeWarning(s.width, s.height)
 	}
 
 	bg := styles.ColorDarkBg

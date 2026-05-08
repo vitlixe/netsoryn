@@ -113,6 +113,9 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if tooSmall(m.width, m.height) {
+			return m, nil
+		}
 		// inner content = total minus chrome rows minus border sides
 		innerW := msg.Width - 2
 		innerH := msg.Height - chromeRows
@@ -132,6 +135,9 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case tea.KeyMsg:
+		if key.Matches(msg, m.globalKeys.Quit) {
+			return m, tea.Quit
+		}
 		if key.Matches(msg, m.globalKeys.Help) {
 			m.showHelp = !m.showHelp
 			return m, nil
@@ -141,9 +147,6 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showHelp = false
 			}
 			return m, nil
-		}
-		if key.Matches(msg, m.globalKeys.Quit) {
-			return m, tea.Quit
 		}
 		switch msg.String() {
 		case "1":
@@ -199,6 +202,9 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m RootModel) View() string {
 	if m.width == 0 {
 		return "Initialising…"
+	}
+	if tooSmall(m.width, m.height) {
+		return renderSizeWarning(m.width, m.height)
 	}
 
 	header := m.renderHeader()
@@ -339,18 +345,7 @@ func (m RootModel) renderFooter() string {
 
 	var parts []string
 	for _, h := range hints {
-		k := lipgloss.NewStyle().
-			Background(styles.ColorTabBg).
-			Foreground(styles.ColorDarkBg).
-			Background(styles.ColorGray).
-			Bold(true).
-			Padding(0, 1).
-			Render(h.k)
-		v := lipgloss.NewStyle().
-			Background(styles.ColorTabBg).
-			Foreground(styles.ColorGray).
-			Render(" " + h.v)
-		parts = append(parts, k+v)
+		parts = append(parts, shortcutHint(h.k, h.v, styles.ColorTabBg))
 	}
 
 	bar := lipgloss.NewStyle().Background(styles.ColorTabBg).Render("  ") +
@@ -419,4 +414,20 @@ func (m RootModel) renderHelp() string {
 		Background(styles.ColorHeaderBg).
 		Padding(1, 3).
 		Render(sb.String())
+}
+
+// shortcutHint renders a footer-style key badge followed by muted label text.
+// bg is the background color of the surrounding surface (used for the label).
+func shortcutHint(k, label string, bg lipgloss.Color) string {
+	badge := lipgloss.NewStyle().
+		Background(styles.ColorGray).
+		Foreground(styles.ColorDarkBg).
+		Bold(true).
+		Padding(0, 1).
+		Render(k)
+	text := lipgloss.NewStyle().
+		Background(bg).
+		Foreground(styles.ColorGray).
+		Render(" " + label)
+	return badge + text
 }
