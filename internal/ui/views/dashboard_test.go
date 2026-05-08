@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/vitlixe/netsoryn/internal/collectors"
 	"github.com/vitlixe/netsoryn/internal/config"
 )
