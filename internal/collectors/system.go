@@ -72,12 +72,13 @@ func (c *SystemCollector) Collect(ctx context.Context) (interface{}, error) {
 		}
 	}
 
-	// Load average
+	// Load average — not supported on Windows; zero values are left as-is.
 	avg, err := load.AvgWithContext(ctx)
 	if err == nil {
 		data.LoadAvg1 = avg.Load1
 		data.LoadAvg5 = avg.Load5
 		data.LoadAvg15 = avg.Load15
+		data.LoadAvgSupported = true
 	}
 
 	// Uptime

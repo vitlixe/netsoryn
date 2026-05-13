@@ -178,14 +178,15 @@ func newTestDashboard() *Dashboard {
 		cfg:    &config.Config{},
 		loaded: true,
 		data: collectors.SystemData{
-			CPUTotal:    45.5,
-			CPUPercents: []float64{60.0, 30.0},
-			MemPercent:  58.9,
-			MemUsed:     10_066_329_600, // ~9.4 GB
-			MemTotal:    17_179_869_184, // 16.0 GB
-			SwapPercent: 0.0,
-			SwapUsed:    0,
-			SwapTotal:   0,
+			CPUTotal:         45.5,
+			CPUPercents:      []float64{60.0, 30.0},
+			MemPercent:       58.9,
+			MemUsed:          10_066_329_600, // ~9.4 GB
+			MemTotal:         17_179_869_184, // 16.0 GB
+			SwapPercent:      0.0,
+			SwapUsed:         0,
+			SwapTotal:        0,
+			LoadAvgSupported: true,
 			Disks: []collectors.DiskStat{
 				// /System/Volumes/Data — sizeStr "1.5 TB / 4.0 TB" = 15 chars
 				{Mountpoint: "/System/Volumes/Data", Used: 1_649_267_441_664, Total: 4_398_046_511_104, UsedPercent: 37.5},
@@ -301,6 +302,34 @@ func TestDashboardView_WideAsymmetric(t *testing.T) {
 		d.height = 40
 		checkNoWrap(t, fmt.Sprintf("View(wide asymmetric w=%d)", w), d.View(), w)
 	}
+}
+
+// TestRenderLoad_LoadAvgSupported checks that load values appear when supported
+// and "N/A" appears when not (e.g. Windows).
+func TestRenderLoad_LoadAvgSupported(t *testing.T) {
+	t.Run("supported shows values", func(t *testing.T) {
+		d := newTestDashboard()
+		d.data.LoadAvgSupported = true
+		d.data.LoadAvg1 = 1.23
+		out := d.renderLoad(60)
+		if !strings.Contains(out, "1.23") {
+			t.Errorf("expected load value in output, got:\n%s", out)
+		}
+		if strings.Contains(out, "N/A") {
+			t.Errorf("unexpected N/A when LoadAvgSupported=true, got:\n%s", out)
+		}
+	})
+	t.Run("unsupported shows N/A", func(t *testing.T) {
+		d := newTestDashboard()
+		d.data.LoadAvgSupported = false
+		out := d.renderLoad(60)
+		if !strings.Contains(out, "N/A") {
+			t.Errorf("expected N/A when LoadAvgSupported=false, got:\n%s", out)
+		}
+		if strings.Contains(out, "0.00") {
+			t.Errorf("unexpected 0.00 when LoadAvgSupported=false, got:\n%s", out)
+		}
+	})
 }
 
 // TestRenderLoad_NoWrap verifies that renderLoad respects the width limit

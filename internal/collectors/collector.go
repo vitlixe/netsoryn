@@ -14,20 +14,21 @@ type Collector interface {
 
 // SystemData holds CPU, memory, disk, and load metrics.
 type SystemData struct {
-	CPUPercents   []float64
-	CPUTotal      float64
-	MemTotal      uint64
-	MemUsed       uint64
-	MemPercent    float64
-	SwapTotal     uint64
-	SwapUsed      uint64
-	SwapPercent   float64
-	Disks         []DiskStat
-	LoadAvg1      float64
-	LoadAvg5      float64
-	LoadAvg15     float64
-	UptimeSeconds uint64
-	Hostname      string
+	CPUPercents      []float64
+	CPUTotal         float64
+	MemTotal         uint64
+	MemUsed          uint64
+	MemPercent       float64
+	SwapTotal        uint64
+	SwapUsed         uint64
+	SwapPercent      float64
+	Disks            []DiskStat
+	LoadAvg1         float64
+	LoadAvg5         float64
+	LoadAvg15        float64
+	LoadAvgSupported bool
+	UptimeSeconds    uint64
+	Hostname         string
 }
 
 type DiskStat struct {

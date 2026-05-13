@@ -160,13 +160,20 @@ func (d *Dashboard) renderLoad(w int) string {
 		hostname = styles.Truncate(hostname, w-hostPfxW)
 	}
 
-	return strings.Join([]string{
-		styles.Title.Render("  System"),
-		fmt.Sprintf("  Load avg  %s  %s  %s",
+	var loadLine string
+	if d.data.LoadAvgSupported {
+		loadLine = fmt.Sprintf("  Load avg  %s  %s  %s",
 			styles.ValueAccent.Render(fmt.Sprintf("%.2f", d.data.LoadAvg1)),
 			styles.ValueAccent.Render(fmt.Sprintf("%.2f", d.data.LoadAvg5)),
 			styles.ValueAccent.Render(fmt.Sprintf("%.2f", d.data.LoadAvg15)),
-		),
+		)
+	} else {
+		loadLine = fmt.Sprintf("  Load avg  %s", styles.Muted.Render("N/A"))
+	}
+
+	return strings.Join([]string{
+		styles.Title.Render("  System"),
+		loadLine,
 		fmt.Sprintf("  Uptime    %s", styles.Muted.Render(uptime)),
 		fmt.Sprintf("  Host      %s", styles.ValueAccent.Render(hostname)),
 	}, "\n")
