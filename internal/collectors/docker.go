@@ -31,12 +31,26 @@ type dockerPsEntry struct {
 	Created string `json:"CreatedAt"`
 }
 
+// dockerArgs prepends --host <socketPath> to args when socketPath is non-empty.
+// An empty socketPath leaves args unchanged, preserving default Docker CLI behaviour
+// (DOCKER_HOST env or platform default socket).
+func dockerArgs(socketPath string, args ...string) []string {
+	if socketPath == "" {
+		return args
+	}
+	out := make([]string, 0, len(args)+2)
+	out = append(out, "--host", socketPath)
+	out = append(out, args...)
+	return out
+}
+
 func (c *DockerCollector) Collect(ctx context.Context) (interface{}, error) {
 	// Use docker CLI — works without SDK dependency
-	cmd := exec.CommandContext(ctx,
-		"docker", "ps", "--all",
+	args := dockerArgs(c.socketPath,
+		"ps", "--all",
 		"--format", `{"ID":"{{.ID}}","Names":"{{.Names}}","Image":"{{.Image}}","Status":"{{.Status}}","State":"{{.State}}","Ports":"{{.Ports}}","CreatedAt":"{{.CreatedAt}}"}`,
 	)
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	out, err := cmd.Output()
 	if err != nil {
 		// Docker not available or not running
