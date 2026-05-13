@@ -37,7 +37,9 @@ processes, services, Docker containers, DNS, HTTP endpoints and more.`,
 				return fmt.Errorf("loading config: %w", err)
 			}
 
-			setupLogging(cfg)
+			if f := setupLogging(cfg); f != nil {
+				defer f.Close()
+			}
 
 			m := ui.New(cfg, version)
 			p := tea.NewProgram(
@@ -69,7 +71,7 @@ func versionCmd() *cobra.Command {
 	}
 }
 
-func setupLogging(cfg *config.Config) {
+func setupLogging(cfg *config.Config) *os.File {
 	level := zerolog.Disabled
 	switch cfg.LogLevel {
 	case "debug":
@@ -87,9 +89,10 @@ func setupLogging(cfg *config.Config) {
 		f, err := os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 		if err == nil {
 			log.Logger = log.Output(f)
-			return
+			return f
 		}
 	}
 	// Default: write to stderr (hidden behind alt-screen during TUI)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	return nil
 }
