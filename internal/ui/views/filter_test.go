@@ -1,11 +1,13 @@
 package views
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/vitlixe/netsoryn/internal/collectors"
 	"github.com/vitlixe/netsoryn/internal/config"
 )
 
@@ -69,6 +71,41 @@ func TestProcessesView_NoFilter(t *testing.T) {
 	if n := filterCount(out); n != 0 {
 		t.Errorf("expected 0 'Filter:' in View() when no filter active, got %d", n)
 	}
+}
+
+func TestPortsView_EntryCount(t *testing.T) {
+	ports := []collectors.PortStat{
+		{Port: 80, Protocol: "tcp", Address: "0.0.0.0", State: "LISTEN", Process: "nginx"},
+		{Port: 443, Protocol: "tcp", Address: "0.0.0.0", State: "LISTEN", Process: "nginx"},
+		{Port: 5432, Protocol: "tcp", Address: "127.0.0.1", State: "LISTEN", Process: "postgres"},
+	}
+
+	t.Run("no filter shows all entries", func(t *testing.T) {
+		p := NewPorts(&config.Config{})
+		p.loaded = true
+		p.data = ports
+		p.rebuildRows()
+
+		out := p.View()
+		want := fmt.Sprintf("%d entries", len(ports))
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in View(), got:\n%s", want, out)
+		}
+	})
+
+	t.Run("filter reduces entry count", func(t *testing.T) {
+		p := NewPorts(&config.Config{})
+		p.loaded = true
+		p.data = ports
+		p.filter = "nginx"
+		p.rebuildRows()
+
+		out := p.View()
+		want := "2 entries"
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in View(), got:\n%s", want, out)
+		}
+	})
 }
 
 func TestProcessesUpdate_SlashNoOpDuringFiltering(t *testing.T) {

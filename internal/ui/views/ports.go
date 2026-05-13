@@ -32,6 +32,7 @@ type Ports struct {
 	filter    string
 	filtering bool
 	filterBuf strings.Builder
+	rowCount  int
 	width     int
 	height    int
 	loaded    bool
@@ -142,7 +143,7 @@ func (p *Ports) View() string {
 
 	header := fmt.Sprintf("  %s  %s entries",
 		styles.Title.Render("Open Ports"),
-		styles.ValueAccent.Render(fmt.Sprintf("%d", p.table.Height())),
+		styles.ValueAccent.Render(fmt.Sprintf("%d", p.rowCount)),
 	)
 
 	filter := ""
@@ -180,6 +181,7 @@ func (p *Ports) rebuildRows() {
 			styles.Truncate(port.Process, 20),
 		})
 	}
+	p.rowCount = len(rows)
 	setTableRows(&p.table, rows)
 	p.topRow = clampTopRow(p.topRow, len(rows), p.table.Height())
 }
