@@ -1,6 +1,6 @@
 module github.com/vitlixe/netsoryn
 
-go 1.22.0
+go 1.26.3
 
 require (
 	github.com/charmbracelet/bubbles v0.20.0
