@@ -49,6 +49,9 @@ func Load(cfgFile string) (*Config, error) {
 		if home, err := os.UserHomeDir(); err == nil {
 			v.AddConfigPath(filepath.Join(home, ".config", "netsoryn"))
 		}
+		if cfgDir, err := os.UserConfigDir(); err == nil {
+			v.AddConfigPath(filepath.Join(cfgDir, "netsoryn"))
+		}
 		v.AddConfigPath("/etc/netsoryn")
 	}
 
