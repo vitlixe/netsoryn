@@ -260,7 +260,11 @@ func fetchSvcData() tea.Cmd {
 		if err != nil {
 			return svcDataMsg{err: err}
 		}
-		return svcDataMsg{data: raw.(collectors.ServiceData)}
+		data, ok := raw.(collectors.ServiceData)
+		if !ok {
+			return svcDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		}
+		return svcDataMsg{data: data}
 	}
 }
 

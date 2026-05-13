@@ -332,7 +332,11 @@ func fetchDockerData(socketPath string) tea.Cmd {
 		if err != nil {
 			return dockerDataMsg{err: err}
 		}
-		return dockerDataMsg{data: raw.(collectors.DockerData)}
+		data, ok := raw.(collectors.DockerData)
+		if !ok {
+			return dockerDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		}
+		return dockerDataMsg{data: data}
 	}
 }
 

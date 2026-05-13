@@ -227,7 +227,11 @@ func fetchHTTPData(urls []string, timeout time.Duration) tea.Cmd {
 		if err != nil {
 			return httpDataMsg{err: err}
 		}
-		return httpDataMsg{results: raw.([]collectors.HTTPResult)}
+		results, ok := raw.([]collectors.HTTPResult)
+		if !ok {
+			return httpDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		}
+		return httpDataMsg{results: results}
 	}
 }
 

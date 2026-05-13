@@ -270,7 +270,11 @@ func fetchNetData() tea.Cmd {
 		if err != nil {
 			return netDataMsg{err: err}
 		}
-		return netDataMsg{data: raw.(collectors.NetworkData)}
+		data, ok := raw.(collectors.NetworkData)
+		if !ok {
+			return netDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		}
+		return netDataMsg{data: data}
 	}
 }
 

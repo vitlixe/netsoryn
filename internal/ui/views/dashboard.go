@@ -206,7 +206,11 @@ func fetchDashData() tea.Cmd {
 		if err != nil {
 			return dashDataMsg{err: err}
 		}
-		return dashDataMsg{data: raw.(collectors.SystemData)}
+		data, ok := raw.(collectors.SystemData)
+		if !ok {
+			return dashDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		}
+		return dashDataMsg{data: data}
 	}
 }
 

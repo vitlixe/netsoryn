@@ -218,7 +218,11 @@ func fetchDNSData(domains, servers []string) tea.Cmd {
 		if err != nil {
 			return dnsDataMsg{err: err}
 		}
-		return dnsDataMsg{results: raw.([]collectors.DNSResult)}
+		results, ok := raw.([]collectors.DNSResult)
+		if !ok {
+			return dnsDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		}
+		return dnsDataMsg{results: results}
 	}
 }
 

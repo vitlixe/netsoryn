@@ -1,8 +1,6 @@
 package styles
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -172,38 +170,6 @@ var (
 			Foreground(ColorRed)
 )
 
-// ProgressBar renders a colored progress bar.
-func ProgressBar(percent float64, width int) string {
-	if width <= 0 {
-		width = 20
-	}
-	filled := int(float64(width) * percent / 100)
-	if filled > width {
-		filled = width
-	}
-	empty := width - filled
-
-	bar := ""
-	for i := 0; i < filled; i++ {
-		bar += "█"
-	}
-	for i := 0; i < empty; i++ {
-		bar += "░"
-	}
-
-	color := ColorGreen
-	switch {
-	case percent >= 90:
-		color = ColorRed
-	case percent >= 70:
-		color = ColorOrange
-	case percent >= 50:
-		color = ColorYellow
-	}
-
-	return lipgloss.NewStyle().Foreground(color).Render(bar)
-}
-
 // ServiceBadge returns a styled status badge for a service state.
 func ServiceBadge(state string) string {
 	switch state {
@@ -245,24 +211,6 @@ func DockerStateBadge(state string) string {
 	}
 }
 
-// HTTPStatusBadge returns a styled badge for an HTTP status code.
-func HTTPStatusBadge(code int) string {
-	text := ""
-	if code > 0 {
-		text = lipgloss.NewStyle().Render("")
-	}
-	switch {
-	case code >= 500:
-		return BadgeFailed.Render(text)
-	case code >= 400:
-		return BadgeWarning.Render(text)
-	case code >= 200 && code < 300:
-		return BadgeRunning.Render(text)
-	default:
-		return Muted.Render("?")
-	}
-}
-
 // Truncate truncates a string to n runes.
 func Truncate(s string, n int) string {
 	runes := []rune(s)
@@ -270,19 +218,4 @@ func Truncate(s string, n int) string {
 		return s
 	}
 	return string(runes[:n-1]) + "…"
-}
-
-// FormatBytes formats bytes to human-readable form.
-func FormatBytes(b uint64) string {
-	const unit = 1024
-	if b < unit {
-		return lipgloss.NewStyle().Render(fmt.Sprintf("%d B", b))
-	}
-	div, exp := uint64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	units := []string{"KB", "MB", "GB", "TB"}
-	return lipgloss.NewStyle().Render(fmt.Sprintf("%.1f %s", float64(b)/float64(div), units[exp]))
 }

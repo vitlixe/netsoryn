@@ -203,7 +203,11 @@ func fetchPortsData(listenOnly bool) tea.Cmd {
 		if err != nil {
 			return portsDataMsg{err: err}
 		}
-		return portsDataMsg{data: raw.(collectors.PortData)}
+		data, ok := raw.(collectors.PortData)
+		if !ok {
+			return portsDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		}
+		return portsDataMsg{data: data}
 	}
 }
 

@@ -244,7 +244,11 @@ func fetchProcData(limit int) tea.Cmd {
 		if err != nil {
 			return procDataMsg{err: err}
 		}
-		return procDataMsg{data: raw.(collectors.ProcessData)}
+		data, ok := raw.(collectors.ProcessData)
+		if !ok {
+			return procDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		}
+		return procDataMsg{data: data}
 	}
 }
 
