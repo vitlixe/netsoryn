@@ -345,10 +345,10 @@ func TestDashboardView_NarrowOrder(t *testing.T) {
 	memIdx := strings.Index(out, "Memory")
 	diskIdx := strings.Index(out, "Disk")
 	sysIdx := strings.Index(out, "System")
-	if !(cpuIdx >= 0 && memIdx >= 0 && diskIdx >= 0 && sysIdx >= 0) {
+	if cpuIdx < 0 || memIdx < 0 || diskIdx < 0 || sysIdx < 0 {
 		t.Fatalf("narrow view missing sections: CPU=%d Memory=%d Disk=%d System=%d", cpuIdx, memIdx, diskIdx, sysIdx)
 	}
-	if !(cpuIdx < memIdx && memIdx < diskIdx && diskIdx < sysIdx) {
+	if cpuIdx >= memIdx || memIdx >= diskIdx || diskIdx >= sysIdx {
 		t.Errorf("narrow layout order wrong: CPU=%d Memory=%d Disk=%d System=%d", cpuIdx, memIdx, diskIdx, sysIdx)
 	}
 }
