@@ -104,6 +104,14 @@ cp config.example.yaml "$HOME/Library/Application Support/netsoryn/config.yaml"
 
 Use the archive that matches your system, for example `netsoryn_*_darwin_arm64.tar.gz` on Apple Silicon Macs.
 
+> **macOS Gatekeeper note:** release binaries are not currently notarized with an Apple Developer ID. macOS may show a warning: *"Apple could not verify that netsoryn is free of malware."* This is a Gatekeeper quarantine on unsigned binaries, not necessarily an indication of malware. To remove the quarantine attribute after extracting:
+>
+> ```bash
+> xattr -d com.apple.quarantine ./netsoryn
+> ```
+>
+> Alternatively, right-click the binary in Finder and choose **Open**.
+
 Linux packages are also available for Debian/Ubuntu and Fedora/RHEL systems.
 
 Debian/Ubuntu:
