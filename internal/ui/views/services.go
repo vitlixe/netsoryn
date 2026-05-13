@@ -175,20 +175,18 @@ func (s *Services) rebuildRows() {
 		status := serviceStatusLabel(serviceDisplayStatus(svc))
 		var row table.Row
 		if s.data.Platform == "darwin" {
-			nameW := s.width - 12
-			if nameW < 20 {
-				nameW = 20
-			}
+			nameW := svcDarwinNameWidth(s.width)
 			row = table.Row{
 				styles.Truncate(svc.Name, nameW),
 				status,
 			}
 		} else {
+			descW := svcDescriptionWidth(s.width)
 			row = table.Row{
 				styles.Truncate(svc.Name, 35),
 				status,
 				svc.ActiveState,
-				styles.Truncate(svc.Description, 40),
+				styles.Truncate(svc.Description, descW),
 			}
 		}
 		rows = append(rows, row)
@@ -229,30 +227,43 @@ func serviceStatusLabel(status string) string {
 	}
 }
 
+// svcDarwinNameWidth returns the Service column width for the darwin 2-column
+// layout. bubbles/table adds 2 chars padding per column, so rendered total is
+// (nameW+2) + (10+2) = nameW+14. Solve for nameW: w-14, min 20.
+func svcDarwinNameWidth(w int) int {
+	nameW := w - 14
+	if nameW < 20 {
+		nameW = 20
+	}
+	return nameW
+}
+
+// svcDescriptionWidth returns the Description column width for the linux/windows
+// 4-column layout. Rendered total: (35+2)+(10+2)+(10+2)+(descW+2) = 63+descW.
+// Solve for descW: w-63, min 20. Dynamic only when w > 83.
+func svcDescriptionWidth(w int) int {
+	if w > 83 {
+		return w - 63
+	}
+	return 20
+}
+
 // svcColumns returns platform-appropriate table columns.
 // Darwin/launchd uses a 2-column layout (Service + State) because launchd
 // provides no description and the active/substate distinction is redundant.
 // Linux/systemd uses a 4-column layout (Service, Status, Active, Description).
 func svcColumns(w int, platform string) []table.Column {
 	if platform == "darwin" {
-		nameW := w - 12
-		if nameW < 20 {
-			nameW = 20
-		}
 		return []table.Column{
-			{Title: "Service", Width: nameW},
+			{Title: "Service", Width: svcDarwinNameWidth(w)},
 			{Title: "State", Width: 10},
 		}
-	}
-	descW := 20
-	if w > 67 {
-		descW = w - 57
 	}
 	return []table.Column{
 		{Title: "Service", Width: 35},
 		{Title: "Status", Width: 10},
 		{Title: "Active", Width: 10},
-		{Title: "Description", Width: descW},
+		{Title: "Description", Width: svcDescriptionWidth(w)},
 	}
 }
 
