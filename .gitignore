@@ -1,6 +1,5 @@
 /netsoryn
 dist/
-.claude/
 *.test
 *.out
 coverage.out
