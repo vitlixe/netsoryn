@@ -1,5 +1,11 @@
 # Netsoryn configuration example
-# Copy to ~/.config/netsoryn/config.yaml or /etc/netsoryn/config.yaml
+#
+# Config file locations (first match wins):
+#   Linux:   ~/.config/netsoryn/config.yaml
+#   macOS:   ~/Library/Application Support/netsoryn/config.yaml
+#            or ~/.config/netsoryn/config.yaml
+#   Windows: %APPDATA%\netsoryn\config.yaml
+#   All:     /etc/netsoryn/config.yaml  (system-wide fallback)
 
 # Refresh interval for live data (seconds)
 refresh_interval: 2
@@ -27,7 +33,12 @@ dns_checks:
       - "8.8.8.8:53"
       - "1.1.1.1:53"
 
-# Docker: socket path (empty = default)
+# Docker: socket path override (empty = Docker default / DOCKER_HOST env)
+# Examples:
+#   unix:///var/run/docker.sock        (Linux/macOS explicit)
+#   npipe:////./pipe/docker_engine     (Windows named pipe)
+#   tcp://localhost:2375               (remote TCP)
+#   ssh://user@host                    (remote SSH)
 docker_socket: ""
 
 # Processes: max processes to display

@@ -30,7 +30,7 @@
 | **Processes** | `2` | Top processes by CPU/MEM, sortable, filterable |
 | **Network** | `3` | Interfaces + I/O, active connections |
 | **Ports** | `4` | Open/listening ports with owning process |
-| **Services** | `5` | systemd (Linux) / launchd (macOS) service states |
+| **Services** | `5` | systemd (Linux) / launchd (macOS) / SCM (Windows) service states |
 | **Docker** | `6` | Containers — name, image, state, ports |
 | **DNS** | `7` | Interactive DNS resolver (A, AAAA, MX, NS, CNAME) |
 | **HTTP** | `8` | HTTP/TLS endpoint checker with latency and cert info |
@@ -58,7 +58,7 @@
 ### Quick start
 
 ```bash
-# requires Go 1.22+
+# requires Go 1.26+
 make run            # builds to dist/netsoryn and starts the TUI
 ```
 
@@ -67,7 +67,7 @@ The startup splash appears first, then Netsoryn opens the main dashboard.
 ### From source
 
 ```bash
-# requires Go 1.22+
+# requires Go 1.26+
 git clone https://github.com/vitlixe/netsoryn
 cd netsoryn
 make build          # builds to dist/netsoryn
@@ -79,16 +79,16 @@ make install        # installs to $GOPATH/bin
 
 Download from the [Releases](https://github.com/vitlixe/netsoryn/releases) page.
 
-Linux/macOS zip:
+Linux/macOS (tar.gz):
 
 ```bash
-unzip netsoryn_*_linux_amd64.zip
+tar xzf netsoryn_*_linux_amd64.tar.gz
 chmod +x netsoryn
 sudo mv netsoryn /usr/local/bin/
 netsoryn
 ```
 
-Use the archive that matches your system, for example `netsoryn_*_darwin_arm64.zip` on Apple Silicon Macs.
+Use the archive that matches your system, for example `netsoryn_*_darwin_arm64.tar.gz` on Apple Silicon Macs.
 
 Linux packages are also available for Debian/Ubuntu and Fedora/RHEL systems.
 
@@ -134,6 +134,18 @@ mkdir -p ~/.config/netsoryn
 cp configs/netsoryn.example.yaml ~/.config/netsoryn/config.yaml
 ```
 
+Config is loaded from the first file found, in order:
+
+| Platform | Path |
+|----------|------|
+| Linux | `~/.config/netsoryn/config.yaml` |
+| macOS | `~/Library/Application Support/netsoryn/config.yaml` |
+| Windows | `%APPDATA%\netsoryn\config.yaml` |
+| All | `~/.config/netsoryn/config.yaml` (fallback) |
+| All | `/etc/netsoryn/config.yaml` (system-wide) |
+
+Environment variables override config values: prefix with `NETSORYN_` (e.g. `NETSORYN_REFRESH_INTERVAL=5`).
+
 Key options:
 
 ```yaml
@@ -150,8 +162,6 @@ dns_checks:
   - domain: "example.com"
     servers: ["8.8.8.8:53", "1.1.1.1:53"]
 ```
-
-Environment variables override config: prefix with `NETSORYN_` (e.g. `NETSORYN_REFRESH_INTERVAL=5`).
 
 ## Design principles
 
@@ -171,7 +181,7 @@ netsoryn/
 │   │   ├── process.go   # process list (gopsutil)
 │   │   ├── network.go   # interfaces + connections (gopsutil)
 │   │   ├── ports.go     # listening ports (gopsutil)
-│   │   ├── services.go  # systemd / launchd
+│   │   ├── services.go  # systemd / launchd / SCM (Windows)
 │   │   ├── docker.go    # docker CLI
 │   │   ├── dns.go       # net.Resolver
 │   │   └── http_check.go# net/http

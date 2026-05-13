@@ -2,8 +2,9 @@
 
 ## Requirements
 
-- Go 1.22+
+- Go 1.26+
 - `golangci-lint` for linting (`brew install golangci-lint` or see [golangci-lint.run](https://golangci-lint.run/welcome/install/))
+- `govulncheck` for vulnerability scanning (`go install golang.org/x/vuln/cmd/govulncheck@latest`)
 
 ## Local setup
 
@@ -32,7 +33,8 @@ make lint    # run golangci-lint
 1. Fork the repo and create a branch from `main`.
 2. Add or update tests where applicable.
 3. Run `make test` and `make lint` — both must pass.
-4. Open a PR with a clear description of what and why.
+4. Run `govulncheck ./...` to check for known vulnerabilities.
+5. Open a PR with a clear description of what and why.
 
 ## Adding a collector
 
