@@ -85,7 +85,7 @@ func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				str := s.filterBuf.String()
 				if len(str) > 0 {
 					s.filterBuf.Reset()
-					s.filterBuf.WriteString(str[:len(str)-1])
+					s.filterBuf.WriteString(trimLastRune(str))
 				}
 				s.filter = s.filterBuf.String()
 				s.rebuildRows()

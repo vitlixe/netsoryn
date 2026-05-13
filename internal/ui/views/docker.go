@@ -77,7 +77,7 @@ func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				s := d.filterBuf.String()
 				if len(s) > 0 {
 					d.filterBuf.Reset()
-					d.filterBuf.WriteString(s[:len(s)-1])
+					d.filterBuf.WriteString(trimLastRune(s))
 				}
 				d.filter = d.filterBuf.String()
 				d.rebuildRows()

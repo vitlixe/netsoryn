@@ -8,6 +8,16 @@ import (
 	"github.com/vitlixe/netsoryn/internal/ui/styles"
 )
 
+// trimLastRune removes the last Unicode code point from s.
+// Safe for multibyte UTF-8: "fé" → "f", "тест" → "тес".
+func trimLastRune(s string) string {
+	r := []rune(s)
+	if len(r) == 0 {
+		return ""
+	}
+	return string(r[:len(r)-1])
+}
+
 // ContentSizeMsg is sent by the root model to notify views of their available drawing area.
 type ContentSizeMsg struct {
 	Width  int

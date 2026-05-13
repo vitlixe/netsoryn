@@ -73,6 +73,23 @@ func TestProcessesView_NoFilter(t *testing.T) {
 	}
 }
 
+func TestTrimLastRune(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"", ""},
+		{"abc", "ab"},
+		{"fé", "f"},
+		{"тест", "тес"},
+		{"🙂x", "🙂"},
+	}
+	for _, c := range cases {
+		if got := trimLastRune(c.in); got != c.want {
+			t.Errorf("trimLastRune(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestPortsView_EntryCount(t *testing.T) {
 	ports := []collectors.PortStat{
 		{Port: 80, Protocol: "tcp", Address: "0.0.0.0", State: "LISTEN", Process: "nginx"},

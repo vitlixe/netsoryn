@@ -107,7 +107,7 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				s := n.filterBuf.String()
 				if len(s) > 0 {
 					n.filterBuf.Reset()
-					n.filterBuf.WriteString(s[:len(s)-1])
+					n.filterBuf.WriteString(trimLastRune(s))
 				}
 				n.filter = n.filterBuf.String()
 				n.rebuildConnRows()

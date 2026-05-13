@@ -89,7 +89,7 @@ func (p *Ports) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				s := p.filterBuf.String()
 				if len(s) > 0 {
 					p.filterBuf.Reset()
-					p.filterBuf.WriteString(s[:len(s)-1])
+					p.filterBuf.WriteString(trimLastRune(s))
 				}
 				p.filter = p.filterBuf.String()
 				p.rebuildRows()
