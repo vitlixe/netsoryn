@@ -29,6 +29,9 @@ archives:
         formats:
           - zip
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: configs/netsoryn.example.yaml
+        dst: config.example.yaml
 
 nfpms:
   - id: netsoryn

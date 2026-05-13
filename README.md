@@ -88,6 +88,20 @@ sudo mv netsoryn /usr/local/bin/
 netsoryn
 ```
 
+The archive includes `config.example.yaml`. To use it as a starting config:
+
+**Linux:**
+```bash
+mkdir -p ~/.config/netsoryn
+cp config.example.yaml ~/.config/netsoryn/config.yaml
+```
+
+**macOS:**
+```bash
+mkdir -p "$HOME/Library/Application Support/netsoryn"
+cp config.example.yaml "$HOME/Library/Application Support/netsoryn/config.yaml"
+```
+
 Use the archive that matches your system, for example `netsoryn_*_darwin_arm64.tar.gz` on Apple Silicon Macs.
 
 Linux packages are also available for Debian/Ubuntu and Fedora/RHEL systems.
@@ -110,7 +124,14 @@ Windows:
 
 1. Download `netsoryn_*_windows_amd64.zip`.
 2. Extract the archive.
-3. Run `netsoryn.exe` from PowerShell:
+3. Optionally copy the included `config.example.yaml` to your config directory:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:APPDATA\netsoryn"
+Copy-Item config.example.yaml "$env:APPDATA\netsoryn\config.yaml"
+```
+
+4. Run `netsoryn.exe` from PowerShell:
 
 ```powershell
 .\netsoryn.exe
@@ -127,9 +148,14 @@ Make sure `$GOPATH/bin` is in your `PATH`.
 
 ## Configuration
 
-Copy the example config and adjust:
+The release archive includes `config.example.yaml`. If you installed from source, use `configs/netsoryn.example.yaml` instead.
 
 ```bash
+# from a release archive (Linux)
+mkdir -p ~/.config/netsoryn
+cp config.example.yaml ~/.config/netsoryn/config.yaml
+
+# from source
 mkdir -p ~/.config/netsoryn
 cp configs/netsoryn.example.yaml ~/.config/netsoryn/config.yaml
 ```
