@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -26,6 +27,8 @@ func (c *ServiceCollector) Collect(ctx context.Context) (interface{}, error) {
 		return c.collectSystemd(ctx, platform)
 	case "darwin":
 		return c.collectLaunchd(ctx, platform)
+	case "windows":
+		return c.collectSCM(ctx, platform)
 	default:
 		return ServiceData{Platform: platform}, nil
 	}
@@ -115,4 +118,73 @@ func (c *ServiceCollector) collectLaunchd(ctx context.Context, platform string) 
 	}
 
 	return ServiceData{Services: services, Platform: platform}, nil
+}
+
+func (c *ServiceCollector) collectSCM(ctx context.Context, platform string) (ServiceData, error) {
+	cmd := exec.CommandContext(ctx,
+		"powershell",
+		"-NoProfile",
+		"-NonInteractive",
+		"-Command",
+		`Get-Service | Select-Object Name,DisplayName,@{Name='Status';Expression={$_.Status.ToString()}} | ConvertTo-Json -Compress`,
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		return ServiceData{Platform: platform}, nil
+	}
+	return parseSCMJSON(out, platform)
+}
+
+type scmEntry struct {
+	Name        string `json:"Name"`
+	DisplayName string `json:"DisplayName"`
+	Status      string `json:"Status"`
+}
+
+func parseSCMJSON(out []byte, platform string) (ServiceData, error) {
+	out = bytes.TrimSpace(out)
+	if len(out) == 0 {
+		return ServiceData{Platform: platform}, nil
+	}
+
+	var entries []scmEntry
+	if out[0] == '[' {
+		if err := json.Unmarshal(out, &entries); err != nil {
+			return ServiceData{Platform: platform}, nil
+		}
+	} else {
+		var single scmEntry
+		if err := json.Unmarshal(out, &single); err != nil {
+			return ServiceData{Platform: platform}, nil
+		}
+		entries = []scmEntry{single}
+	}
+
+	services := make([]ServiceStat, 0, len(entries))
+	for _, e := range entries {
+		sub, active := scmStatusToStates(e.Status)
+		services = append(services, ServiceStat{
+			Name:        e.Name,
+			LoadState:   "loaded",
+			ActiveState: active,
+			SubState:    sub,
+			Description: e.DisplayName,
+		})
+	}
+	return ServiceData{Services: services, Platform: platform}, nil
+}
+
+func scmStatusToStates(status string) (subState, activeState string) {
+	switch status {
+	case "Running", "4":
+		return "running", "active"
+	case "Stopped", "1":
+		return "stopped", "inactive"
+	case "Paused", "7":
+		return "paused", "active"
+	case "StartPending", "2", "StopPending", "3", "ContinuePending", "5", "PausePending", "6":
+		return "pending", "active"
+	default:
+		return strings.ToLower(status), "unknown"
+	}
 }

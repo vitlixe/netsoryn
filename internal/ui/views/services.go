@@ -135,9 +135,12 @@ func (s *Services) View() string {
 	}
 
 	platformNote := ""
-	if s.data.Platform == "darwin" {
+	switch s.data.Platform {
+	case "darwin":
 		platformNote = styles.Muted.Render("  (launchd)")
-	} else if s.data.Platform != "linux" {
+	case "linux", "windows":
+		// supported, no note needed
+	default:
 		return styles.Muted.Render("  Services view not supported on this platform.")
 	}
 
