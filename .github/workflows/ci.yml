@@ -27,6 +27,9 @@ jobs:
       - name: Download modules
         run: go mod download
 
+      - name: Verify modules
+        run: go mod verify
+
       - name: Vet
         run: go vet ./...
 
