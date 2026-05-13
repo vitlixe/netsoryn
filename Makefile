@@ -44,11 +44,12 @@ tidy:
 clean:
 	@rm -rf $(BUILD_DIR) coverage.out coverage.html
 
-## cross: build for Linux amd64 (useful when developing on macOS)
+## cross: build for Linux amd64, macOS arm64, and Windows amd64
 cross:
 	@mkdir -p $(BUILD_DIR)
 	GOOS=linux GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY)-linux-amd64 ./cmd/$(BINARY)
 	GOOS=darwin GOARCH=arm64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY)-darwin-arm64 ./cmd/$(BINARY)
+	GOOS=windows GOARCH=amd64 $(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY)-windows-amd64.exe ./cmd/$(BINARY)
 
 ## help: show this help
 help:
