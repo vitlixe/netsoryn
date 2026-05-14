@@ -109,7 +109,7 @@ func (m RootModel) Init() tea.Cmd {
 	for i, v := range m.viewModels {
 		cmds[i] = v.Init()
 	}
-	return tea.Batch(cmds...)
+	return tea.Batch(append(cmds, tea.SetWindowTitle("netsoryn"))...)
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────
