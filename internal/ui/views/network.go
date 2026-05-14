@@ -31,6 +31,7 @@ const (
 
 type Network struct {
 	cfg         *config.Config
+	ctx         context.Context
 	ifaceTable  table.Model
 	connTable   table.Model
 	topRowIface int
@@ -47,9 +48,10 @@ type Network struct {
 	loaded      bool
 }
 
-func NewNetwork(cfg *config.Config) *Network {
+func NewNetwork(cfg *config.Config, ctx context.Context) *Network {
 	return &Network{
 		cfg:        cfg,
+		ctx:        ctx,
 		ifaceTable: table.New(table.WithColumns(ifaceColumns(80)), table.WithFocused(true), table.WithHeight(10), table.WithStyles(tableStyles())),
 		connTable:  table.New(table.WithColumns(connColumns(80)), table.WithFocused(false), table.WithHeight(10), table.WithStyles(tableStyles())),
 		keys:       keys.DefaultNavKeyMap(),
@@ -67,7 +69,7 @@ func (n *Network) syncFocus() {
 }
 
 func (n *Network) Init() tea.Cmd {
-	return tea.Batch(fetchNetData(), tickNet(n.cfg.RefreshInterval))
+	return tea.Batch(fetchNetData(n.ctx), tickNet(n.cfg.RefreshInterval))
 }
 
 func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -94,7 +96,7 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case netTickMsg:
-		return n, tea.Batch(fetchNetData(), tickNet(n.cfg.RefreshInterval))
+		return n, tea.Batch(fetchNetData(n.ctx), tickNet(n.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
 		if n.filtering {
@@ -263,10 +265,10 @@ func connColumns(w int) []table.Column {
 	}
 }
 
-func fetchNetData() tea.Cmd {
+func fetchNetData(ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		c := collectors.NewNetworkCollector()
-		raw, err := c.Collect(context.Background())
+		raw, err := c.Collect(ctx)
 		if err != nil {
 			return netDataMsg{err: err}
 		}

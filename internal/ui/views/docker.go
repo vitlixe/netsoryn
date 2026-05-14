@@ -24,6 +24,7 @@ type dockerDataMsg struct {
 
 type Docker struct {
 	cfg       *config.Config
+	ctx       context.Context
 	data      collectors.DockerData
 	rows      []collectors.ContainerStat
 	cursor    int
@@ -38,15 +39,16 @@ type Docker struct {
 	loaded    bool
 }
 
-func NewDocker(cfg *config.Config) *Docker {
+func NewDocker(cfg *config.Config, ctx context.Context) *Docker {
 	return &Docker{
 		cfg:  cfg,
+		ctx:  ctx,
 		keys: keys.DefaultNavKeyMap(),
 	}
 }
 
 func (d *Docker) Init() tea.Cmd {
-	return tea.Batch(fetchDockerData(d.cfg.DockerSocket), tickDocker(d.cfg.RefreshInterval))
+	return tea.Batch(fetchDockerData(d.ctx, d.cfg.DockerSocket), tickDocker(d.cfg.RefreshInterval))
 }
 
 func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -64,7 +66,7 @@ func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case dockerTickMsg:
-		return d, tea.Batch(fetchDockerData(d.cfg.DockerSocket), tickDocker(d.cfg.RefreshInterval))
+		return d, tea.Batch(fetchDockerData(d.ctx, d.cfg.DockerSocket), tickDocker(d.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
 		if d.filtering {
@@ -325,10 +327,10 @@ func dockerStateLabel(state string) string {
 	}
 }
 
-func fetchDockerData(socketPath string) tea.Cmd {
+func fetchDockerData(ctx context.Context, socketPath string) tea.Cmd {
 	return func() tea.Msg {
 		c := collectors.NewDockerCollector(socketPath)
-		raw, err := c.Collect(context.Background())
+		raw, err := c.Collect(ctx)
 		if err != nil {
 			return dockerDataMsg{err: err}
 		}

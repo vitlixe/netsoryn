@@ -26,6 +26,7 @@ type httpQueryMsg struct {
 
 type HTTP struct {
 	cfg       *config.Config
+	ctx       context.Context
 	results   []collectors.HTTPResult
 	input     textinput.Model
 	inputMode bool
@@ -35,13 +36,13 @@ type HTTP struct {
 	loaded    bool
 }
 
-func NewHTTP(cfg *config.Config) *HTTP {
+func NewHTTP(cfg *config.Config, ctx context.Context) *HTTP {
 	ti := textinput.New()
 	ti.Placeholder = "https://example.com"
 	ti.CharLimit = 500
 	ti.Width = 50
 
-	h := &HTTP{cfg: cfg, input: ti}
+	h := &HTTP{cfg: cfg, ctx: ctx, input: ti}
 
 	if len(cfg.HTTPChecks) > 0 {
 		h.loaded = true
@@ -60,7 +61,7 @@ func (h *HTTP) Init() tea.Cmd {
 	for _, c := range h.cfg.HTTPChecks {
 		urls = append(urls, c.URL)
 	}
-	return fetchHTTPData(urls, 10*time.Second)
+	return fetchHTTPData(h.ctx, urls, 10*time.Second)
 }
 
 func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -87,7 +88,7 @@ func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for _, c := range h.cfg.HTTPChecks {
 				urls = append(urls, c.URL)
 			}
-			return h, tea.Batch(fetchHTTPData(urls, 10*time.Second), tickHTTP())
+			return h, tea.Batch(fetchHTTPData(h.ctx, urls, 10*time.Second), tickHTTP())
 		}
 
 	case tea.KeyMsg:
@@ -106,7 +107,7 @@ func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					h.input.Reset()
 					h.input.Blur()
 					h.inputMode = false
-					return h, checkHTTP(url, 10*time.Second)
+					return h, checkHTTP(h.ctx, url, 10*time.Second)
 				}
 				h.inputMode = false
 				h.input.Blur()
@@ -216,14 +217,10 @@ func (h *HTTP) renderResult(r collectors.HTTPResult) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-func fetchHTTPData(urls []string, timeout time.Duration) tea.Cmd {
-	// TODO: replace context.Background() with a cancellable context from RootModel
-	// so in-flight requests are cancelled on quit. Requires passing ctx through
-	// model hierarchy — deferred to avoid architectural refactor pre-release.
-	// Goroutines are bounded by the HTTP client Timeout, so no leak.
+func fetchHTTPData(ctx context.Context, urls []string, timeout time.Duration) tea.Cmd {
 	return func() tea.Msg {
 		c := collectors.NewHTTPCollector(urls, timeout)
-		raw, err := c.Collect(context.Background())
+		raw, err := c.Collect(ctx)
 		if err != nil {
 			return httpDataMsg{err: err}
 		}
@@ -235,10 +232,9 @@ func fetchHTTPData(urls []string, timeout time.Duration) tea.Cmd {
 	}
 }
 
-func checkHTTP(url string, timeout time.Duration) tea.Cmd {
-	// TODO: same as fetchHTTPData — replace with cancellable context.
+func checkHTTP(ctx context.Context, url string, timeout time.Duration) tea.Cmd {
 	return func() tea.Msg {
-		result := collectors.CheckOnce(context.Background(), url, timeout)
+		result := collectors.CheckOnce(ctx, url, timeout)
 		return httpQueryMsg{result: result}
 	}
 }

@@ -24,6 +24,7 @@ type svcDataMsg struct {
 
 type Services struct {
 	cfg       *config.Config
+	ctx       context.Context
 	table     table.Model
 	topRow    int
 	data      collectors.ServiceData
@@ -37,7 +38,7 @@ type Services struct {
 	loaded    bool
 }
 
-func NewServices(cfg *config.Config) *Services {
+func NewServices(cfg *config.Config, ctx context.Context) *Services {
 	t := table.New(
 		table.WithColumns(svcColumns(80, "")),
 		table.WithFocused(true),
@@ -46,13 +47,14 @@ func NewServices(cfg *config.Config) *Services {
 	)
 	return &Services{
 		cfg:   cfg,
+		ctx:   ctx,
 		table: t,
 		keys:  keys.DefaultNavKeyMap(),
 	}
 }
 
 func (s *Services) Init() tea.Cmd {
-	return tea.Batch(fetchSvcData(), tickSvc(s.cfg.RefreshInterval))
+	return tea.Batch(fetchSvcData(s.ctx), tickSvc(s.cfg.RefreshInterval))
 }
 
 func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -72,7 +74,7 @@ func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case svcTickMsg:
-		return s, tea.Batch(fetchSvcData(), tickSvc(s.cfg.RefreshInterval))
+		return s, tea.Batch(fetchSvcData(s.ctx), tickSvc(s.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
 		if s.filtering {
@@ -267,10 +269,10 @@ func svcColumns(w int, platform string) []table.Column {
 	}
 }
 
-func fetchSvcData() tea.Cmd {
+func fetchSvcData(ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		c := collectors.NewServiceCollector()
-		raw, err := c.Collect(context.Background())
+		raw, err := c.Collect(ctx)
 		if err != nil {
 			return svcDataMsg{err: err}
 		}

@@ -26,6 +26,7 @@ type dnsQueryMsg struct {
 
 type DNS struct {
 	cfg       *config.Config
+	ctx       context.Context
 	results   []collectors.DNSResult
 	input     textinput.Model
 	inputMode bool
@@ -36,7 +37,7 @@ type DNS struct {
 	servers   []string
 }
 
-func NewDNS(cfg *config.Config) *DNS {
+func NewDNS(cfg *config.Config, ctx context.Context) *DNS {
 	ti := textinput.New()
 	ti.Placeholder = "domain.com"
 	ti.CharLimit = 253
@@ -53,6 +54,7 @@ func NewDNS(cfg *config.Config) *DNS {
 
 	d := &DNS{
 		cfg:     cfg,
+		ctx:     ctx,
 		input:   ti,
 		servers: servers,
 	}
@@ -74,7 +76,7 @@ func (d *DNS) Init() tea.Cmd {
 	for _, c := range d.cfg.DNSChecks {
 		domains = append(domains, c.Domain)
 	}
-	return fetchDNSData(domains, d.servers)
+	return fetchDNSData(d.ctx, domains, d.servers)
 }
 
 func (d *DNS) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -102,7 +104,7 @@ func (d *DNS) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for _, c := range d.cfg.DNSChecks {
 				domains = append(domains, c.Domain)
 			}
-			return d, tea.Batch(fetchDNSData(domains, d.servers), tickDNS())
+			return d, tea.Batch(fetchDNSData(d.ctx, domains, d.servers), tickDNS())
 		}
 
 	case tea.KeyMsg:
@@ -118,7 +120,7 @@ func (d *DNS) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					d.input.Reset()
 					d.input.Blur()
 					d.inputMode = false
-					return d, queryDNS(domain, d.servers)
+					return d, queryDNS(d.ctx, domain, d.servers)
 				}
 				d.inputMode = false
 				d.input.Blur()
@@ -209,12 +211,10 @@ func (d *DNS) renderResult(r collectors.DNSResult) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-func fetchDNSData(domains, servers []string) tea.Cmd {
-	// TODO: replace context.Background() with a cancellable context from RootModel.
-	// DNS dialer already has a 5s timeout, so goroutines are bounded.
+func fetchDNSData(ctx context.Context, domains, servers []string) tea.Cmd {
 	return func() tea.Msg {
 		c := collectors.NewDNSCollector(domains, servers)
-		raw, err := c.Collect(context.Background())
+		raw, err := c.Collect(ctx)
 		if err != nil {
 			return dnsDataMsg{err: err}
 		}
@@ -226,10 +226,9 @@ func fetchDNSData(domains, servers []string) tea.Cmd {
 	}
 }
 
-func queryDNS(domain string, servers []string) tea.Cmd {
-	// TODO: same as fetchDNSData — replace with cancellable context.
+func queryDNS(ctx context.Context, domain string, servers []string) tea.Cmd {
 	return func() tea.Msg {
-		result := collectors.ResolveOnce(context.Background(), domain, servers)
+		result := collectors.ResolveOnce(ctx, domain, servers)
 		return dnsQueryMsg{result: result}
 	}
 }

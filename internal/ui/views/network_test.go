@@ -1,6 +1,7 @@
 package views
 
 import (
+	"context"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -9,7 +10,7 @@ import (
 )
 
 func newTestNetwork() *Network {
-	return NewNetwork(&config.Config{})
+	return NewNetwork(&config.Config{}, context.Background())
 }
 
 // bubbles table.SetHeight(h) stores h-headersHeight in the viewport, so

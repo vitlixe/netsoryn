@@ -1,6 +1,7 @@
 package views
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -21,7 +22,7 @@ func filterCount(s string) int {
 }
 
 func TestProcessesView_NoDoubleFilter(t *testing.T) {
-	p := NewProcesses(&config.Config{})
+	p := NewProcesses(&config.Config{}, context.Background())
 	p.loaded = true
 	p.filter = "foo"
 	p.filtering = true
@@ -35,7 +36,7 @@ func TestProcessesView_NoDoubleFilter(t *testing.T) {
 }
 
 func TestProcessesView_FilteringOnly(t *testing.T) {
-	p := NewProcesses(&config.Config{})
+	p := NewProcesses(&config.Config{}, context.Background())
 	p.loaded = true
 	p.filter = ""
 	p.filtering = true
@@ -52,7 +53,7 @@ func TestProcessesView_FilteringOnly(t *testing.T) {
 }
 
 func TestProcessesView_CommittedFilter(t *testing.T) {
-	p := NewProcesses(&config.Config{})
+	p := NewProcesses(&config.Config{}, context.Background())
 	p.loaded = true
 	p.filter = "nginx"
 	p.filtering = false
@@ -64,7 +65,7 @@ func TestProcessesView_CommittedFilter(t *testing.T) {
 }
 
 func TestProcessesView_NoFilter(t *testing.T) {
-	p := NewProcesses(&config.Config{})
+	p := NewProcesses(&config.Config{}, context.Background())
 	p.loaded = true
 
 	out := p.View()
@@ -98,7 +99,7 @@ func TestPortsView_EntryCount(t *testing.T) {
 	}
 
 	t.Run("no filter shows all entries", func(t *testing.T) {
-		p := NewPorts(&config.Config{})
+		p := NewPorts(&config.Config{}, context.Background())
 		p.loaded = true
 		p.data = ports
 		p.rebuildRows()
@@ -111,7 +112,7 @@ func TestPortsView_EntryCount(t *testing.T) {
 	})
 
 	t.Run("filter reduces entry count", func(t *testing.T) {
-		p := NewPorts(&config.Config{})
+		p := NewPorts(&config.Config{}, context.Background())
 		p.loaded = true
 		p.data = ports
 		p.filter = "nginx"
@@ -126,7 +127,7 @@ func TestPortsView_EntryCount(t *testing.T) {
 }
 
 func TestProcessesUpdate_SlashNoOpDuringFiltering(t *testing.T) {
-	p := NewProcesses(&config.Config{})
+	p := NewProcesses(&config.Config{}, context.Background())
 	p.loaded = true
 	p.filtering = true
 	p.filterBuf.Reset()

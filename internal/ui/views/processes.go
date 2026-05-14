@@ -37,6 +37,7 @@ var sortNames = [numProcSorts]string{"CPU%", "MEM%", "PID", "Name"}
 
 type Processes struct {
 	cfg       *config.Config
+	ctx       context.Context
 	table     table.Model
 	topRow    int
 	data      []collectors.ProcessStat
@@ -51,7 +52,7 @@ type Processes struct {
 	loaded    bool
 }
 
-func NewProcesses(cfg *config.Config) *Processes {
+func NewProcesses(cfg *config.Config, ctx context.Context) *Processes {
 	cols := procColumns(80)
 	t := table.New(
 		table.WithColumns(cols),
@@ -61,6 +62,7 @@ func NewProcesses(cfg *config.Config) *Processes {
 	)
 	return &Processes{
 		cfg:    cfg,
+		ctx:    ctx,
 		table:  t,
 		keys:   keys.DefaultNavKeyMap(),
 		sortBy: sortCPU,
@@ -69,7 +71,7 @@ func NewProcesses(cfg *config.Config) *Processes {
 
 func (p *Processes) Init() tea.Cmd {
 	return tea.Batch(
-		fetchProcData(p.cfg.ProcessLimit),
+		fetchProcData(p.ctx, p.cfg.ProcessLimit),
 		tickProc(p.cfg.RefreshInterval),
 	)
 }
@@ -93,7 +95,7 @@ func (p *Processes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case procTickMsg:
-		return p, tea.Batch(fetchProcData(p.cfg.ProcessLimit), tickProc(p.cfg.RefreshInterval))
+		return p, tea.Batch(fetchProcData(p.ctx, p.cfg.ProcessLimit), tickProc(p.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
 		if p.filtering {
@@ -237,10 +239,10 @@ func procColumns(w int) []table.Column {
 	}
 }
 
-func fetchProcData(limit int) tea.Cmd {
+func fetchProcData(ctx context.Context, limit int) tea.Cmd {
 	return func() tea.Msg {
 		c := collectors.NewProcessCollector(limit)
-		raw, err := c.Collect(context.Background())
+		raw, err := c.Collect(ctx)
 		if err != nil {
 			return procDataMsg{err: err}
 		}

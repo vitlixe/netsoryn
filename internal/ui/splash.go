@@ -39,6 +39,7 @@ func (s Splash) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return s.main, nil
 	case tea.KeyMsg:
 		if key.Matches(msg, s.main.globalKeys.Quit) {
+			s.main.cancel()
 			return s, tea.Quit
 		}
 		return s.main, nil

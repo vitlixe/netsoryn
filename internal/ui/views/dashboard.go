@@ -22,6 +22,7 @@ type dashDataMsg struct {
 
 type Dashboard struct {
 	cfg    *config.Config
+	ctx    context.Context
 	data   collectors.SystemData
 	err    error
 	width  int
@@ -29,13 +30,13 @@ type Dashboard struct {
 	loaded bool
 }
 
-func NewDashboard(cfg *config.Config) *Dashboard {
-	return &Dashboard{cfg: cfg}
+func NewDashboard(cfg *config.Config, ctx context.Context) *Dashboard {
+	return &Dashboard{cfg: cfg, ctx: ctx}
 }
 
 func (d *Dashboard) Init() tea.Cmd {
 	return tea.Batch(
-		fetchDashData(),
+		fetchDashData(d.ctx),
 		tickDash(d.cfg.RefreshInterval),
 	)
 }
@@ -52,7 +53,7 @@ func (d *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.err = msg.err
 
 	case dashTickMsg:
-		return d, tea.Batch(fetchDashData(), tickDash(d.cfg.RefreshInterval))
+		return d, tea.Batch(fetchDashData(d.ctx), tickDash(d.cfg.RefreshInterval))
 	}
 	return d, nil
 }
@@ -206,10 +207,10 @@ func (d *Dashboard) renderDisks(w int) string {
 	return strings.Join(lines, "\n")
 }
 
-func fetchDashData() tea.Cmd {
+func fetchDashData(ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		c := collectors.NewSystemCollector()
-		raw, err := c.Collect(context.Background())
+		raw, err := c.Collect(ctx)
 		if err != nil {
 			return dashDataMsg{err: err}
 		}

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -56,19 +57,23 @@ type RootModel struct {
 	showHelp   bool
 	version    string
 	globalKeys keys.GlobalKeyMap
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 // New constructs the RootModel and initialises all child views.
 func New(cfg *config.Config, version string) RootModel {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	vms := make([]tea.Model, numViews)
-	vms[ViewDashboard] = views.NewDashboard(cfg)
-	vms[ViewProcesses] = views.NewProcesses(cfg)
-	vms[ViewNetwork] = views.NewNetwork(cfg)
-	vms[ViewPorts] = views.NewPorts(cfg)
-	vms[ViewServices] = views.NewServices(cfg)
-	vms[ViewDocker] = views.NewDocker(cfg)
-	vms[ViewDNS] = views.NewDNS(cfg)
-	vms[ViewHTTP] = views.NewHTTP(cfg)
+	vms[ViewDashboard] = views.NewDashboard(cfg, ctx)
+	vms[ViewProcesses] = views.NewProcesses(cfg, ctx)
+	vms[ViewNetwork] = views.NewNetwork(cfg, ctx)
+	vms[ViewPorts] = views.NewPorts(cfg, ctx)
+	vms[ViewServices] = views.NewServices(cfg, ctx)
+	vms[ViewDocker] = views.NewDocker(cfg, ctx)
+	vms[ViewDNS] = views.NewDNS(cfg, ctx)
+	vms[ViewHTTP] = views.NewHTTP(cfg, ctx)
 
 	defaultView := ViewDashboard
 	switch strings.ToLower(cfg.DefaultView) {
@@ -94,6 +99,8 @@ func New(cfg *config.Config, version string) RootModel {
 		active:     defaultView,
 		version:    version,
 		globalKeys: keys.DefaultGlobalKeyMap(),
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 }
 
@@ -136,6 +143,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if key.Matches(msg, m.globalKeys.Quit) {
+			m.cancel()
 			return m, tea.Quit
 		}
 		if key.Matches(msg, m.globalKeys.Help) {

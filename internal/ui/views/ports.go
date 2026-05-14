@@ -24,6 +24,7 @@ type portsDataMsg struct {
 
 type Ports struct {
 	cfg       *config.Config
+	ctx       context.Context
 	table     table.Model
 	topRow    int
 	data      []collectors.PortStat
@@ -38,7 +39,7 @@ type Ports struct {
 	loaded    bool
 }
 
-func NewPorts(cfg *config.Config) *Ports {
+func NewPorts(cfg *config.Config, ctx context.Context) *Ports {
 	t := table.New(
 		table.WithColumns(portsColumns(80)),
 		table.WithFocused(true),
@@ -47,6 +48,7 @@ func NewPorts(cfg *config.Config) *Ports {
 	)
 	return &Ports{
 		cfg:   cfg,
+		ctx:   ctx,
 		table: t,
 		keys:  keys.DefaultNavKeyMap(),
 	}
@@ -54,7 +56,7 @@ func NewPorts(cfg *config.Config) *Ports {
 
 func (p *Ports) Init() tea.Cmd {
 	return tea.Batch(
-		fetchPortsData(p.cfg.PortsListenOnly),
+		fetchPortsData(p.ctx, p.cfg.PortsListenOnly),
 		tickPorts(p.cfg.RefreshInterval),
 	)
 }
@@ -76,7 +78,7 @@ func (p *Ports) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case portsTickMsg:
-		return p, tea.Batch(fetchPortsData(p.cfg.PortsListenOnly), tickPorts(p.cfg.RefreshInterval))
+		return p, tea.Batch(fetchPortsData(p.ctx, p.cfg.PortsListenOnly), tickPorts(p.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
 		if p.filtering {
@@ -198,10 +200,10 @@ func portsColumns(w int) []table.Column {
 	}
 }
 
-func fetchPortsData(listenOnly bool) tea.Cmd {
+func fetchPortsData(ctx context.Context, listenOnly bool) tea.Cmd {
 	return func() tea.Msg {
 		c := collectors.NewPortCollector(listenOnly)
-		raw, err := c.Collect(context.Background())
+		raw, err := c.Collect(ctx)
 		if err != nil {
 			return portsDataMsg{err: err}
 		}
