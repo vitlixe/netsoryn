@@ -231,11 +231,15 @@ func serviceStatusLabel(status string) string {
 
 // svcDarwinNameWidth returns the Service column width for the darwin 2-column
 // layout. bubbles/table adds 2 chars padding per column, so rendered total is
-// (nameW+2) + (10+2) = nameW+14. Solve for nameW: w-14, min 20.
+// (nameW+2) + (10+2) = nameW+14. Solve for nameW: w-14, clamped to [20, 60].
+// The max cap keeps State close to Service on wide terminals.
 func svcDarwinNameWidth(w int) int {
 	nameW := w - 14
 	if nameW < 20 {
 		nameW = 20
+	}
+	if nameW > 60 {
+		nameW = 60
 	}
 	return nameW
 }

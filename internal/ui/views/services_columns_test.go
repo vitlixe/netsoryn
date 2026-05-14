@@ -70,16 +70,26 @@ func TestSvcDarwinNameWidth(t *testing.T) {
 		w    int
 		want int
 	}{
-		{30, 20}, // clamped: 30-14=16 < 20
-		{34, 20}, // boundary: 34-14=20, exact minimum
-		{40, 26}, // 40-14=26
-		{80, 66}, // 80-14=66
-		{200, 186},
+		{30, 20},  // clamped: 30-14=16 < 20
+		{34, 20},  // boundary: 34-14=20, exact minimum
+		{40, 26},  // 40-14=26
+		{74, 60},  // boundary: 74-14=60, exact maximum
+		{80, 60},  // clamped: 80-14=66 > 60
+		{200, 60}, // clamped: 200-14=186 > 60
 	}
 	for _, c := range cases {
 		got := svcDarwinNameWidth(c.w)
 		if got != c.want {
 			t.Errorf("svcDarwinNameWidth(%d) = %d, want %d", c.w, got, c.want)
+		}
+	}
+}
+
+func TestSvcDarwinNameWidth_MaxCap(t *testing.T) {
+	for _, w := range []int{74, 80, 100, 120, 200} {
+		got := svcDarwinNameWidth(w)
+		if got > 60 {
+			t.Errorf("svcDarwinNameWidth(%d) = %d, want <= 60", w, got)
 		}
 	}
 }
