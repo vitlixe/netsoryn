@@ -47,7 +47,7 @@
 | `/` | Filter (type, then Enter) |
 | `Esc` | Clear filter / close input |
 | `s` | Cycle sort column (processes view) |
-| `h` / `l` | Switch sub-tabs (network view) |
+| `h` / `←` / `l` / `→` | Switch sub-tabs (network view) |
 | `n` | New query (DNS / HTTP views) |
 | `D` | Remove first result (DNS / HTTP views) |
 | `?` | Toggle help overlay |

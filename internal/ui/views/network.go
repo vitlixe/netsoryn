@@ -134,13 +134,13 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			n.filterBuf.Reset()
 			n.rebuildConnRows()
 			return n, nil
-		case msg.String() == "h":
+		case msg.String() == "h" || msg.Type == tea.KeyLeft:
 			if n.activeTab > 0 {
 				n.activeTab--
 				n.syncFocus()
 			}
 			return n, nil
-		case msg.String() == "l":
+		case msg.String() == "l" || msg.Type == tea.KeyRight:
 			if int(n.activeTab) < 1 {
 				n.activeTab++
 				n.syncFocus()
@@ -179,7 +179,7 @@ func (n *Network) View() string {
 	}
 	tabBar := fmt.Sprintf("  %s  %s  %s", styles.Title.Render("Network"), tabIface, tabConn)
 
-	hint := styles.Muted.Render("  h/l: switch panel  /: filter")
+	hint := styles.Muted.Render("  h/← l/→: switch panel  /: filter")
 	if n.filtering {
 		hint = "  Filter: " + styles.ValueAccent.Render(n.filterBuf.String()) + styles.Muted.Render("_")
 	} else if n.filter != "" {

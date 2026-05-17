@@ -88,3 +88,36 @@ func TestNetworkFocus_SwitchBackToInterfaces(t *testing.T) {
 		t.Error("connTable should not be focused after switching back to Interfaces")
 	}
 }
+
+func TestNetworkFocus_RightArrowSwitchesToConnections(t *testing.T) {
+	n := newTestNetwork()
+	_, _ = n.Update(tea.KeyMsg{Type: tea.KeyRight})
+
+	if n.activeTab != netTabConns {
+		t.Errorf("activeTab = %d, want netTabConns (%d)", n.activeTab, netTabConns)
+	}
+	if !n.connTable.Focused() {
+		t.Error("connTable should be focused after right arrow")
+	}
+	if n.ifaceTable.Focused() {
+		t.Error("ifaceTable should not be focused after right arrow")
+	}
+}
+
+func TestNetworkFocus_LeftArrowSwitchesBackToInterfaces(t *testing.T) {
+	n := newTestNetwork()
+	// Move to Connections first.
+	_, _ = n.Update(tea.KeyMsg{Type: tea.KeyRight})
+	// Move back with left arrow.
+	_, _ = n.Update(tea.KeyMsg{Type: tea.KeyLeft})
+
+	if n.activeTab != netTabIfaces {
+		t.Errorf("activeTab = %d, want netTabIfaces (%d)", n.activeTab, netTabIfaces)
+	}
+	if !n.ifaceTable.Focused() {
+		t.Error("ifaceTable should be focused after left arrow")
+	}
+	if n.connTable.Focused() {
+		t.Error("connTable should not be focused after left arrow")
+	}
+}
