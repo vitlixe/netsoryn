@@ -3,13 +3,13 @@
 ## Requirements
 
 - Go 1.26+
-- `golangci-lint` for linting (`brew install golangci-lint` or see [golangci-lint.run](https://golangci-lint.run/welcome/install/))
+- `golangci-lint` for linting (`brew install golangci-lint` or your package manager)
 - `govulncheck` for vulnerability scanning (`go install golang.org/x/vuln/cmd/govulncheck@latest`)
 
 ## Local setup
 
 ```bash
-git clone https://github.com/vitlixe/netsoryn
+git clone https://github.com/vitlixe/netsoryn.git
 cd netsoryn
 make build   # builds to dist/netsoryn
 make run     # build + launch TUI
@@ -19,14 +19,7 @@ make lint    # run golangci-lint
 
 ## Development workflow
 
-```bash
-make run     # build to dist/netsoryn and launch the TUI
-make build   # build to dist/netsoryn with git-derived version
-make test    # run all tests with the race detector
-make lint    # run golangci-lint
-```
-
-`make build` passes `-ldflags` with the output of `git describe --tags --always --dirty`. If HEAD is exactly on a tag and the working tree is clean, you get `v0.1.0`. Uncommitted changes append `-dirty`, e.g. `v0.1.0-dirty`.
+`make build` embeds a version string via `-ldflags` using `git describe --tags --always --dirty`. On a clean tagged commit you get `v0.1.0`; uncommitted changes append `-dirty`, e.g. `v0.1.0-dirty`.
 
 ## Making changes
 

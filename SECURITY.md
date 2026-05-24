@@ -8,8 +8,7 @@ Only the latest release is supported with security fixes.
 
 Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Use [GitHub Security Advisories](https://github.com/vitlixe/netsoryn/security/advisories/new)
-to report a vulnerability privately.
+Use GitHub's private vulnerability reporting for this repository.
 
 Include:
 - Description of the vulnerability

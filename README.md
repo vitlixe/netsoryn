@@ -35,152 +35,106 @@
 | **DNS** | `7` | Interactive DNS resolver (A, AAAA, MX, NS, CNAME) |
 | **HTTP** | `8` | HTTP/TLS endpoint checker with latency and cert info |
 
-## Keyboard shortcuts
+## Installation
+
+### Pre-built binaries
+
+Download a binary from the GitHub Releases page.
+
+**Linux**
+
+```bash
+# tar.gz
+tar xzf netsoryn_*_linux_amd64.tar.gz
+chmod +x netsoryn
+sudo mv netsoryn /usr/local/bin/
+
+# deb
+sudo dpkg -i netsoryn_*_linux_amd64.deb
+
+# rpm
+sudo rpm -i netsoryn_*_linux_amd64.rpm
+```
+
+**macOS**
+
+```bash
+tar xzf netsoryn_*_darwin_arm64.tar.gz   # Apple Silicon
+# tar xzf netsoryn_*_darwin_amd64.tar.gz  # Intel
+chmod +x netsoryn
+sudo mv netsoryn /usr/local/bin/
+```
+
+> Release binaries are not notarized. If macOS blocks the binary, run `xattr -d com.apple.quarantine ./netsoryn` or right-click → **Open** in Finder.
+
+**Windows**
+
+Download `netsoryn_*_windows_amd64.zip`, extract, and run `netsoryn.exe`.
+
+tar.gz and zip archives include `config.example.yaml`. System packages do not — see the Configuration section below.
+
+### Go install
+
+Requires Go 1.26+.
+
+```bash
+go install github.com/vitlixe/netsoryn/cmd/netsoryn@latest
+```
+
+Make sure `$GOPATH/bin` is in your `PATH`.
+
+### From source
+
+Requires Go 1.26+.
+
+```bash
+git clone https://github.com/vitlixe/netsoryn.git
+cd netsoryn
+make run     # build and launch immediately
+make build   # build only → dist/netsoryn
+make install # install to $GOPATH/bin
+```
+
+## Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
 | `1`–`8` | Jump to view |
 | `Tab` / `Shift+Tab` | Cycle views |
 | `j` / `k` | Navigate down / up |
-| `gg` / `G` | Jump to top / bottom |
+| `g` / `G` | Jump to top / bottom |
 | `Ctrl+d` / `Ctrl+u` | Page down / up |
 | `/` | Filter (type, then Enter) |
 | `Esc` | Clear filter / close input |
 | `s` | Cycle sort column (processes view) |
 | `h` / `←` / `l` / `→` | Switch sub-tabs (network view) |
 | `n` | New query (DNS / HTTP views) |
-| `D` | Remove first result (DNS / HTTP views) |
+| `D` / `d` | Remove first result (DNS / HTTP views) |
 | `?` | Toggle help overlay |
 | `q` | Quit |
 
-## Installation
-
-### Quick start
-
-```bash
-# requires Go 1.26+
-make run            # builds to dist/netsoryn and starts the TUI
-```
-
-The startup splash appears first, then Netsoryn opens the main dashboard.
-
-### From source
-
-```bash
-# requires Go 1.26+
-git clone https://github.com/vitlixe/netsoryn
-cd netsoryn
-make build          # builds to dist/netsoryn
-./dist/netsoryn     # runs the built binary
-make install        # installs to $GOPATH/bin
-```
-
-### Pre-built binaries
-
-Download from the [Releases](https://github.com/vitlixe/netsoryn/releases) page.
-
-Linux/macOS (tar.gz):
-
-```bash
-tar xzf netsoryn_*_linux_amd64.tar.gz
-chmod +x netsoryn
-sudo mv netsoryn /usr/local/bin/
-netsoryn
-```
-
-The archive includes `config.example.yaml`. To use it as a starting config:
-
-**Linux:**
-```bash
-mkdir -p ~/.config/netsoryn
-cp config.example.yaml ~/.config/netsoryn/config.yaml
-```
-
-**macOS:**
-```bash
-mkdir -p "$HOME/Library/Application Support/netsoryn"
-cp config.example.yaml "$HOME/Library/Application Support/netsoryn/config.yaml"
-```
-
-Use the archive that matches your system, for example `netsoryn_*_darwin_arm64.tar.gz` on Apple Silicon Macs.
-
-> **macOS Gatekeeper note:** release binaries are not currently notarized with an Apple Developer ID. macOS may show a warning: *"Apple could not verify that netsoryn is free of malware."* This is a Gatekeeper quarantine on unsigned binaries, not necessarily an indication of malware. To remove the quarantine attribute after extracting:
->
-> ```bash
-> xattr -d com.apple.quarantine ./netsoryn
-> ```
->
-> Alternatively, right-click the binary in Finder and choose **Open**.
-
-Linux packages are also available for Debian/Ubuntu and Fedora/RHEL systems.
-
-Debian/Ubuntu:
-
-```bash
-sudo dpkg -i netsoryn_*_linux_amd64.deb
-netsoryn
-```
-
-Fedora/RHEL:
-
-```bash
-sudo rpm -i netsoryn_*_linux_amd64.rpm
-netsoryn
-```
-
-Windows:
-
-1. Download `netsoryn_*_windows_amd64.zip`.
-2. Extract the archive.
-3. Optionally copy the included `config.example.yaml` to your config directory:
-
-```powershell
-New-Item -ItemType Directory -Force "$env:APPDATA\netsoryn"
-Copy-Item config.example.yaml "$env:APPDATA\netsoryn\config.yaml"
-```
-
-4. Run `netsoryn.exe` from PowerShell:
-
-```powershell
-.\netsoryn.exe
-```
-
-### Go install
-
-```bash
-go install github.com/vitlixe/netsoryn/cmd/netsoryn@latest
-netsoryn
-```
-
-Make sure `$GOPATH/bin` is in your `PATH`.
-
 ## Configuration
 
-The release archive includes `config.example.yaml`. If you installed from source, use `configs/netsoryn.example.yaml` instead.
-
-```bash
-# from a release archive (Linux)
-mkdir -p ~/.config/netsoryn
-cp config.example.yaml ~/.config/netsoryn/config.yaml
-
-# from source
-mkdir -p ~/.config/netsoryn
-cp configs/netsoryn.example.yaml ~/.config/netsoryn/config.yaml
-```
-
-Config is loaded from the first file found, in order:
+Config file locations — first match wins:
 
 | Platform | Path |
 |----------|------|
 | Linux | `~/.config/netsoryn/config.yaml` |
 | macOS | `~/Library/Application Support/netsoryn/config.yaml` |
 | Windows | `%APPDATA%\netsoryn\config.yaml` |
-| All | `~/.config/netsoryn/config.yaml` (fallback) |
 | All | `/etc/netsoryn/config.yaml` (system-wide) |
 
-Environment variables override config values: prefix with `NETSORYN_` (e.g. `NETSORYN_REFRESH_INTERVAL=5`).
+Create a config from the example:
 
-Key options:
+```bash
+# from source
+mkdir -p ~/.config/netsoryn
+cp configs/netsoryn.example.yaml ~/.config/netsoryn/config.yaml
+```
+
+From a release archive, use `config.example.yaml` instead of `configs/netsoryn.example.yaml`.
+
+Environment variables override config values — prefix with `NETSORYN_` (e.g. `NETSORYN_REFRESH_INTERVAL=5`).
 
 ```yaml
 refresh_interval: 2          # seconds between auto-refresh
@@ -197,13 +151,9 @@ dns_checks:
     servers: ["8.8.8.8:53", "1.1.1.1:53"]
 ```
 
-## Design principles
+See `configs/netsoryn.example.yaml` for all options.
 
-- **Read-only by default.** No writes, no restarts, no destructive actions.
-- **No root required for the basics.** CPU, RAM, disk, DNS, HTTP — all work without elevated privileges. Some features (all process details, low-numbered port ownership) may show partial data without root.
-- **Diagnostic only.** No exploit features, no brute-force, no stealth scanning, no firewall evasion.
-
-## Architecture
+## Project Structure
 
 ```
 netsoryn/
@@ -218,7 +168,7 @@ netsoryn/
 │   │   ├── services.go  # systemd / launchd / SCM (Windows)
 │   │   ├── docker.go    # docker CLI
 │   │   ├── dns.go       # net.Resolver
-│   │   └── http_check.go# net/http
+│   │   └── http_check.go # net/http
 │   └── ui/
 │       ├── model.go     # root bubbletea model (layout, routing)
 │       ├── splash.go    # startup splash screen
@@ -229,24 +179,12 @@ netsoryn/
 └── .github/workflows/   # CI (test, lint, cross-build, release)
 ```
 
-### Adding a collector
+## Safety Notes
 
-1. Implement the `collectors.Collector` interface in `internal/collectors/`.
-2. Create a new view in `internal/ui/views/` with a matching `tea.Model`.
-3. Register the view in `internal/ui/model.go`.
-
-## Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| [charmbracelet/bubbletea](https://github.com/charmbracelet/bubbletea) | TUI framework (Elm architecture) |
-| [charmbracelet/lipgloss](https://github.com/charmbracelet/lipgloss) | Terminal styling |
-| [charmbracelet/bubbles](https://github.com/charmbracelet/bubbles) | Table, textinput, viewport components |
-| [shirou/gopsutil](https://github.com/shirou/gopsutil) | Cross-platform system metrics |
-| [spf13/cobra](https://github.com/spf13/cobra) | CLI framework |
-| [spf13/viper](https://github.com/spf13/viper) | Configuration |
-| [rs/zerolog](https://github.com/rs/zerolog) | Structured logging |
+- **Read-only by default.** No writes, no restarts, no destructive actions.
+- **No root required for the basics.** CPU, RAM, disk, DNS, HTTP — all work without elevated privileges. Some features (all process details, low-numbered port ownership) may show partial data without root.
+- **Diagnostic only.** No exploit features, no brute-force, no stealth scanning, no firewall evasion.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See LICENSE.
