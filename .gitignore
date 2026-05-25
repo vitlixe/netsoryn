@@ -1,5 +1,6 @@
 /netsoryn
 dist/
+docs/
 *.test
 *.out
 coverage.out
