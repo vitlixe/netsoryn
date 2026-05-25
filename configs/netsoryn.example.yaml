@@ -20,6 +20,7 @@ log_level: disabled
 log_file: ""
 
 # HTTP checks: list of URLs to monitor
+# timeout accepts plain numbers (seconds) or Go duration strings: "500ms", "2s", "1m".
 http_checks:
   - url: "https://example.com"
     timeout: 10

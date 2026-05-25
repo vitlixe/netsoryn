@@ -134,7 +134,9 @@ cp configs/netsoryn.example.yaml ~/.config/netsoryn/config.yaml
 
 From a release archive, use `config.example.yaml` instead of `configs/netsoryn.example.yaml`.
 
-Environment variables override config values — prefix with `NETSORYN_` (e.g. `NETSORYN_REFRESH_INTERVAL=5`).
+Environment variables can override scalar config values with the `NETSORYN_` prefix, for example `NETSORYN_REFRESH_INTERVAL=5`.
+
+Duration values use seconds by default (`refresh_interval: 5` means 5 seconds). String values must be valid Go duration strings: `"500ms"`, `"2s"`, `"1m30s"`.
 
 ```yaml
 refresh_interval: 2          # seconds between auto-refresh
@@ -144,7 +146,7 @@ ports_listen_only: true      # show only LISTEN sockets
 
 http_checks:
   - url: "https://example.com"
-    timeout: 10
+    timeout: 10                # seconds
 
 dns_checks:
   - domain: "example.com"

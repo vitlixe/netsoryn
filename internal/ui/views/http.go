@@ -18,7 +18,6 @@ import (
 type httpTickMsg time.Time
 type httpDataMsg struct {
 	results []collectors.HTTPResult
-	err     error
 }
 type httpQueryMsg struct {
 	result collectors.HTTPResult
@@ -30,7 +29,6 @@ type HTTP struct {
 	results   []collectors.HTTPResult
 	input     textinput.Model
 	inputMode bool
-	err       error
 	width     int
 	height    int
 	loaded    bool
@@ -57,11 +55,7 @@ func (h *HTTP) Init() tea.Cmd {
 		return nil
 	}
 
-	urls := make([]string, 0, len(h.cfg.HTTPChecks))
-	for _, c := range h.cfg.HTTPChecks {
-		urls = append(urls, c.URL)
-	}
-	return fetchHTTPData(h.ctx, urls, 10*time.Second)
+	return tea.Batch(fetchHTTPData(h.ctx, h.cfg.HTTPChecks), tickHTTP())
 }
 
 func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -72,10 +66,7 @@ func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case httpDataMsg:
 		h.loaded = true
-		h.err = msg.err
-		if msg.err == nil {
-			h.results = msg.results
-		}
+		h.results = msg.results
 
 	case httpQueryMsg:
 		h.loaded = true
@@ -84,11 +75,7 @@ func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case httpTickMsg:
 		if len(h.cfg.HTTPChecks) > 0 {
-			urls := make([]string, 0, len(h.cfg.HTTPChecks))
-			for _, c := range h.cfg.HTTPChecks {
-				urls = append(urls, c.URL)
-			}
-			return h, tea.Batch(fetchHTTPData(h.ctx, urls, 10*time.Second), tickHTTP())
+			return h, tea.Batch(fetchHTTPData(h.ctx, h.cfg.HTTPChecks), tickHTTP())
 		}
 
 	case tea.KeyMsg:
@@ -217,16 +204,11 @@ func (h *HTTP) renderResult(r collectors.HTTPResult) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-func fetchHTTPData(ctx context.Context, urls []string, timeout time.Duration) tea.Cmd {
+func fetchHTTPData(ctx context.Context, checks []config.HTTPCheck) tea.Cmd {
 	return func() tea.Msg {
-		c := collectors.NewHTTPCollector(urls, timeout)
-		raw, err := c.Collect(ctx)
-		if err != nil {
-			return httpDataMsg{err: err}
-		}
-		results, ok := raw.([]collectors.HTTPResult)
-		if !ok {
-			return httpDataMsg{err: fmt.Errorf("unexpected collector result type %T", raw)}
+		results := make([]collectors.HTTPResult, 0, len(checks))
+		for _, check := range checks {
+			results = append(results, collectors.CheckOnce(ctx, check.URL, check.Timeout))
 		}
 		return httpDataMsg{results: results}
 	}
