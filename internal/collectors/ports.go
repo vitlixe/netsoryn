@@ -21,6 +21,17 @@ func NewPortCollector(listenOnly bool) *PortCollector {
 func (c *PortCollector) Name() string            { return "ports" }
 func (c *PortCollector) Interval() time.Duration { return 3 * time.Second }
 
+// isListening reports whether conn should appear in listen-only mode. TCP must
+// be in the LISTEN state; UDP is connectionless, so a bound socket with no
+// remote peer is treated as listening (matching how `ss -lu` reports them).
+// Without this, the default listen-only view dropped every UDP service.
+func isListening(conn psnet.ConnectionStat) bool {
+	if conn.Type == sockDGRAM {
+		return conn.Raddr.Port == 0
+	}
+	return conn.Status == "LISTEN"
+}
+
 func (c *PortCollector) Collect(ctx context.Context) (interface{}, error) {
 	kind := "inet"
 	conns, err := psnet.ConnectionsWithContext(ctx, kind)
@@ -33,7 +44,7 @@ func (c *PortCollector) Collect(ctx context.Context) (interface{}, error) {
 	ports := make([]PortStat, 0)
 
 	for _, conn := range conns {
-		if c.listenOnly && conn.Status != "LISTEN" {
+		if c.listenOnly && !isListening(conn) {
 			continue
 		}
 		if conn.Laddr.Port == 0 {
