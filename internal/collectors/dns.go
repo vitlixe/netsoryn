@@ -37,12 +37,21 @@ func (c *DNSCollector) resolve(ctx context.Context, domain string) DNSResult {
 	resolver := &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{Timeout: 5 * time.Second}
-			server := c.servers[0]
-			if !strings.Contains(server, ":") {
-				server += ":53"
+			dialer := net.Dialer{Timeout: 5 * time.Second}
+			// Honour the network the resolver asks for ("udp", then "tcp" when a
+			// response is truncated) and fall back across all configured servers.
+			var lastErr error
+			for _, server := range c.servers {
+				if !strings.Contains(server, ":") {
+					server += ":53"
+				}
+				conn, err := dialer.DialContext(ctx, network, server)
+				if err == nil {
+					return conn, nil
+				}
+				lastErr = err
 			}
-			return d.DialContext(ctx, "udp", server)
+			return nil, lastErr
 		},
 	}
 	result.Server = c.servers[0]
