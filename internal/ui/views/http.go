@@ -29,6 +29,7 @@ type HTTP struct {
 	results   []collectors.HTTPResult
 	input     textinput.Model
 	inputMode bool
+	offset    int
 	width     int
 	height    int
 	loaded    bool
@@ -67,11 +68,13 @@ func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case httpDataMsg:
 		h.loaded = true
 		h.results = msg.results
+		h.clampOffset()
 
 	case httpQueryMsg:
 		h.loaded = true
 		h.inputMode = false
 		h.results = append([]collectors.HTTPResult{msg.result}, h.results...)
+		h.offset = 0
 
 	case httpTickMsg:
 		if len(h.cfg.HTTPChecks) > 0 {
@@ -88,9 +91,7 @@ func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				url := strings.TrimSpace(h.input.Value())
 				if url != "" {
-					if !strings.HasPrefix(url, "http") {
-						url = "https://" + url
-					}
+					url = normalizeURL(url)
 					h.input.Reset()
 					h.input.Blur()
 					h.inputMode = false
@@ -114,16 +115,59 @@ func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(h.results) > 0 {
 				h.results = h.results[1:]
 			}
+			h.clampOffset()
+		case "j", "down":
+			h.scrollResults(1)
+		case "k", "up":
+			h.scrollResults(-1)
+		case "g":
+			h.offset = 0
+		case "G":
+			h.offset = h.maxOffset()
 		}
 	}
 
 	return h, nil
 }
 
+func (h *HTTP) maxOffset() int {
+	if len(h.results) == 0 {
+		return 0
+	}
+	return len(h.results) - 1
+}
+
+func (h *HTTP) clampOffset() {
+	if h.offset < 0 {
+		h.offset = 0
+	}
+	if h.offset > h.maxOffset() {
+		h.offset = h.maxOffset()
+	}
+}
+
+func (h *HTTP) scrollResults(delta int) {
+	h.offset += delta
+	h.clampOffset()
+}
+
+// CapturingInput reports whether the URL text field is consuming key input.
+func (h *HTTP) CapturingInput() bool { return h.inputMode }
+
+// normalizeURL prepends https:// when the input lacks an http(s) scheme, so a
+// bare host like "httpbin.org" is treated as a URL instead of being rejected
+// with an unsupported-scheme error.
+func normalizeURL(u string) string {
+	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
+		return u
+	}
+	return "https://" + u
+}
+
 func (h *HTTP) View() string {
 	header := fmt.Sprintf("  %s  %s",
 		styles.Title.Render("HTTP Checker"),
-		styles.Muted.Render("n: new check  D: remove first"),
+		styles.Muted.Render("n: new check  j/k: scroll  D: remove first"),
 	)
 
 	inputLine := ""
@@ -137,17 +181,11 @@ func (h *HTTP) View() string {
 		return fmt.Sprintf("%s%s\n\n  %s", header, inputLine, styles.Muted.Render("No results yet."))
 	}
 
-	var sb strings.Builder
-	sb.WriteString(header)
-	sb.WriteString(inputLine)
-	sb.WriteString("\n")
-
-	for _, r := range h.results {
-		sb.WriteString("\n")
-		sb.WriteString(h.renderResult(r))
+	blocks := make([]string, len(h.results))
+	for i, r := range h.results {
+		blocks[i] = h.renderResult(r)
 	}
-
-	return sb.String()
+	return renderScrollableList(header+inputLine, blocks, h.offset, h.height)
 }
 
 func (h *HTTP) renderResult(r collectors.HTTPResult) string {

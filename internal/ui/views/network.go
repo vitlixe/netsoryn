@@ -46,7 +46,17 @@ type Network struct {
 	width       int
 	height      int
 	loaded      bool
+	active      bool
+
+	// Throughput state: previous per-interface cumulative counters and sample
+	// time, plus the most recent computed per-second rates.
+	prevIO   map[string]netCounters
+	prevTime time.Time
+	rate     map[string]netRate
 }
+
+type netCounters struct{ sent, recv uint64 }
+type netRate struct{ sent, recv float64 }
 
 func NewNetwork(cfg *config.Config, ctx context.Context) *Network {
 	return &Network{
@@ -69,7 +79,20 @@ func (n *Network) syncFocus() {
 }
 
 func (n *Network) Init() tea.Cmd {
-	return tea.Batch(fetchNetData(n.ctx), tickNet(n.cfg.RefreshInterval))
+	if n.active {
+		return tea.Batch(fetchNetData(n.ctx), tickNet(n.cfg.RefreshInterval))
+	}
+	return tickNet(n.cfg.RefreshInterval)
+}
+
+// SetActive pauses or resumes data collection when the view loses or gains
+// focus. On activation it refreshes immediately.
+func (n *Network) SetActive(active bool) tea.Cmd {
+	n.active = active
+	if active {
+		return fetchNetData(n.ctx)
+	}
+	return nil
 }
 
 func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -91,11 +114,15 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		n.err = msg.err
 		if msg.err == nil {
 			n.data = msg.data
+			n.computeRates()
 			n.rebuildIfaceRows()
 			n.rebuildConnRows()
 		}
 
 	case netTickMsg:
+		if !n.active {
+			return n, tickNet(n.cfg.RefreshInterval)
+		}
 		return n, tea.Batch(fetchNetData(n.ctx), tickNet(n.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
@@ -116,9 +143,11 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "/":
 				// ignore: re-pressing / during filter input is a no-op
 			default:
-				n.filterBuf.WriteString(msg.String())
-				n.filter = n.filterBuf.String()
-				n.rebuildConnRows()
+				if len(msg.Runes) > 0 {
+					n.filterBuf.WriteString(string(msg.Runes))
+					n.filter = n.filterBuf.String()
+					n.rebuildConnRows()
+				}
 			}
 			return n, nil
 		}
@@ -162,6 +191,9 @@ func (n *Network) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return n, nil
 }
 
+// CapturingInput reports whether the filter editor is consuming key input.
+func (n *Network) CapturingInput() bool { return n.filtering }
+
 func (n *Network) View() string {
 	if !n.loaded {
 		return styles.Muted.Render("  Loading network data…")
@@ -199,11 +231,12 @@ func (n *Network) rebuildIfaceRows() {
 	for _, iface := range n.data.Interfaces {
 		addrs := strings.Join(iface.Addresses, ", ")
 		flags := strings.Join(iface.Flags, ",")
+		r := n.rate[iface.Name]
 		rows = append(rows, table.Row{
 			iface.Name,
 			styles.Truncate(addrs, 30),
-			fmtBytes(iface.BytesSent),
-			fmtBytes(iface.BytesRecv),
+			fmtRate(r.sent),
+			fmtRate(r.recv),
 			styles.Truncate(flags, 20),
 		})
 	}
@@ -239,10 +272,58 @@ func ifaceColumns(w int) []table.Column {
 	return []table.Column{
 		{Title: "Interface", Width: 12},
 		{Title: "Addresses", Width: 30},
-		{Title: "Sent", Width: 10},
-		{Title: "Received", Width: 10},
+		{Title: "Tx/s", Width: 11},
+		{Title: "Rx/s", Width: 11},
 		{Title: "Flags", Width: 20},
 	}
+}
+
+// computeRates derives per-second send/receive throughput from the change in
+// each interface's cumulative byte counters since the previous sample.
+func (n *Network) computeRates() {
+	now := time.Now()
+	var dt float64
+	if !n.prevTime.IsZero() {
+		dt = now.Sub(n.prevTime).Seconds()
+	}
+	next := make(map[string]netCounters, len(n.data.Interfaces))
+	rates := make(map[string]netRate, len(n.data.Interfaces))
+	for _, iface := range n.data.Interfaces {
+		next[iface.Name] = netCounters{sent: iface.BytesSent, recv: iface.BytesRecv}
+		if prev, ok := n.prevIO[iface.Name]; ok && dt > 0 {
+			rates[iface.Name] = netRate{
+				sent: perSecond(counterDelta(iface.BytesSent, prev.sent), dt),
+				recv: perSecond(counterDelta(iface.BytesRecv, prev.recv), dt),
+			}
+		}
+	}
+	n.prevIO = next
+	n.rate = rates
+	n.prevTime = now
+}
+
+// counterDelta returns cur-prev, or 0 if the counter went backwards (reset).
+func counterDelta(cur, prev uint64) uint64 {
+	if cur < prev {
+		return 0
+	}
+	return cur - prev
+}
+
+// perSecond converts a byte delta over a wall-clock interval into bytes/second.
+func perSecond(delta uint64, seconds float64) float64 {
+	if seconds <= 0 {
+		return 0
+	}
+	return float64(delta) / seconds
+}
+
+// fmtRate formats a bytes-per-second value like "1.2 MB/s".
+func fmtRate(bytesPerSec float64) string {
+	if bytesPerSec < 0 {
+		bytesPerSec = 0
+	}
+	return fmtBytes(uint64(bytesPerSec)) + "/s"
 }
 
 func connColumns(w int) []table.Column {

@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -430,6 +431,65 @@ func TestDashboardView_RightColumnNotHalfWidth(t *testing.T) {
 		}
 		if lay.rightW <= lay.leftW {
 			t.Errorf("w=%d: rightW=%d ≤ leftW=%d (right column should be wider)", w, lay.rightW, lay.leftW)
+		}
+	}
+}
+
+// TestFmtBytes verifies unit scaling and, in particular, that petabyte/exabyte
+// values (reachable via large disk arrays or cumulative NIC byte counters) do
+// not panic on an out-of-range unit index.
+func TestFmtBytes(t *testing.T) {
+	const k = 1024
+	cases := []struct {
+		in   uint64
+		want string
+	}{
+		{0, "0 B"},
+		{512, "512 B"},
+		{2 * k, "2.0 KB"},
+		{3 * k * k, "3.0 MB"},
+		{5 * k * k * k, "5.0 GB"},
+		{2 * k * k * k * k, "2.0 TB"},
+		{2 * k * k * k * k * k, "2.0 PB"},
+		{2 * k * k * k * k * k * k, "2.0 EB"},
+		{^uint64(0), "16.0 EB"}, // max uint64 must clamp at EB, not panic
+	}
+	for _, c := range cases {
+		if got := fmtBytes(c.in); got != c.want {
+			t.Errorf("fmtBytes(%d) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestSafePct(t *testing.T) {
+	cases := []struct {
+		in   float64
+		want float64
+	}{
+		{math.NaN(), 0},
+		{math.Inf(1), 0},
+		{math.Inf(-1), 0},
+		{-5, 0},
+		{0, 0},
+		{42.5, 42.5},
+		{100, 100},
+		{150, 100},
+	}
+	for _, c := range cases {
+		if got := safePct(c.in); got != c.want {
+			t.Errorf("safePct(%v) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+// TestDashboardBar_DegenerateInputs guards against a NaN/Inf or out-of-range
+// percentage (e.g. swap usage on a host with no swap) producing a panic or a
+// bar whose visual width drifts from the requested width.
+func TestDashboardBar_DegenerateInputs(t *testing.T) {
+	for _, p := range []float64{math.NaN(), math.Inf(1), math.Inf(-1), -10, 150} {
+		out := dashboardBar(p, 10)
+		if w := lipgloss.Width(out); w != 10 {
+			t.Errorf("dashboardBar(%v, 10) visual width = %d, want 10", p, w)
 		}
 	}
 }

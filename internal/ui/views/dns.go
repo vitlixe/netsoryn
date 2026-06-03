@@ -30,6 +30,7 @@ type DNS struct {
 	results   []collectors.DNSResult
 	input     textinput.Model
 	inputMode bool
+	offset    int
 	err       error
 	width     int
 	height    int
@@ -76,8 +77,11 @@ func (d *DNS) Init() tea.Cmd {
 	for _, c := range d.cfg.DNSChecks {
 		domains = append(domains, c.Domain)
 	}
-	return fetchDNSData(d.ctx, domains, d.servers)
+	return tea.Batch(fetchDNSData(d.ctx, domains, d.servers), tickDNS())
 }
+
+// CapturingInput reports whether the domain text field is consuming key input.
+func (d *DNS) CapturingInput() bool { return d.inputMode }
 
 func (d *DNS) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -90,13 +94,15 @@ func (d *DNS) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.err = msg.err
 		if msg.err == nil {
 			d.results = msg.results
+			d.clampOffset()
 		}
 
 	case dnsQueryMsg:
 		d.loaded = true
 		d.inputMode = false
-		// prepend the live result
+		// prepend the live result and scroll to it
 		d.results = append([]collectors.DNSResult{msg.result}, d.results...)
+		d.offset = 0
 
 	case dnsTickMsg:
 		if len(d.cfg.DNSChecks) > 0 {
@@ -140,16 +146,46 @@ func (d *DNS) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(d.results) > 0 {
 				d.results = d.results[1:]
 			}
+			d.clampOffset()
+		case "j", "down":
+			d.scrollResults(1)
+		case "k", "up":
+			d.scrollResults(-1)
+		case "g":
+			d.offset = 0
+		case "G":
+			d.offset = d.maxOffset()
 		}
 	}
 
 	return d, nil
 }
 
+func (d *DNS) maxOffset() int {
+	if len(d.results) == 0 {
+		return 0
+	}
+	return len(d.results) - 1
+}
+
+func (d *DNS) clampOffset() {
+	if d.offset < 0 {
+		d.offset = 0
+	}
+	if d.offset > d.maxOffset() {
+		d.offset = d.maxOffset()
+	}
+}
+
+func (d *DNS) scrollResults(delta int) {
+	d.offset += delta
+	d.clampOffset()
+}
+
 func (d *DNS) View() string {
 	header := fmt.Sprintf("  %s  %s",
 		styles.Title.Render("DNS Checker"),
-		styles.Muted.Render("n: new query  D: remove first"),
+		styles.Muted.Render("n: new query  j/k: scroll  D: remove first"),
 	)
 
 	inputLine := ""
@@ -163,17 +199,11 @@ func (d *DNS) View() string {
 		return fmt.Sprintf("%s%s\n\n  %s", header, inputLine, styles.Muted.Render("No results yet."))
 	}
 
-	var sb strings.Builder
-	sb.WriteString(header)
-	sb.WriteString(inputLine)
-	sb.WriteString("\n")
-
-	for _, r := range d.results {
-		sb.WriteString("\n")
-		sb.WriteString(d.renderResult(r))
+	blocks := make([]string, len(d.results))
+	for i, r := range d.results {
+		blocks[i] = d.renderResult(r)
 	}
-
-	return sb.String()
+	return renderScrollableList(header+inputLine, blocks, d.offset, d.height)
 }
 
 func (d *DNS) renderResult(r collectors.DNSResult) string {

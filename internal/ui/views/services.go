@@ -36,6 +36,7 @@ type Services struct {
 	width     int
 	height    int
 	loaded    bool
+	active    bool
 }
 
 func NewServices(cfg *config.Config, ctx context.Context) *Services {
@@ -54,7 +55,20 @@ func NewServices(cfg *config.Config, ctx context.Context) *Services {
 }
 
 func (s *Services) Init() tea.Cmd {
-	return tea.Batch(fetchSvcData(s.ctx), tickSvc(s.cfg.RefreshInterval))
+	if s.active {
+		return tea.Batch(fetchSvcData(s.ctx), tickSvc(s.cfg.RefreshInterval))
+	}
+	return tickSvc(s.cfg.RefreshInterval)
+}
+
+// SetActive pauses or resumes data collection when the view loses or gains
+// focus. On activation it refreshes immediately.
+func (s *Services) SetActive(active bool) tea.Cmd {
+	s.active = active
+	if active {
+		return fetchSvcData(s.ctx)
+	}
+	return nil
 }
 
 func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -74,6 +88,9 @@ func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case svcTickMsg:
+		if !s.active {
+			return s, tickSvc(s.cfg.RefreshInterval)
+		}
 		return s, tea.Batch(fetchSvcData(s.ctx), tickSvc(s.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
@@ -94,9 +111,11 @@ func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "/":
 				// ignore: re-pressing / during filter input is a no-op
 			default:
-				s.filterBuf.WriteString(msg.String())
-				s.filter = s.filterBuf.String()
-				s.rebuildRows()
+				if len(msg.Runes) > 0 {
+					s.filterBuf.WriteString(string(msg.Runes))
+					s.filter = s.filterBuf.String()
+					s.rebuildRows()
+				}
 			}
 			return s, nil
 		}
@@ -130,6 +149,9 @@ func (s *Services) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return s, nil
 }
+
+// CapturingInput reports whether the filter editor is consuming key input.
+func (s *Services) CapturingInput() bool { return s.filtering }
 
 func (s *Services) View() string {
 	if !s.loaded {

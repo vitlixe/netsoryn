@@ -4,8 +4,89 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/vitlixe/netsoryn/internal/config"
 )
+
+func rune1(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
+
+func isQuit(cmd tea.Cmd) bool {
+	if cmd == nil {
+		return false
+	}
+	_, ok := cmd().(tea.QuitMsg)
+	return ok
+}
+
+// enterHTTPInput puts the HTTP view into its text-capturing state by sending "n".
+func enterHTTPInput(t *testing.T) RootModel {
+	t.Helper()
+	m := newTestModel(ViewHTTP)
+	updated, _ := m.Update(rune1('n'))
+	rm := updated.(RootModel)
+	if c, ok := rm.viewModels[ViewHTTP].(inputCapturer); !ok || !c.CapturingInput() {
+		t.Fatal("HTTP view did not enter input-capturing state after 'n'")
+	}
+	return rm
+}
+
+func TestKeyRouting_DigitDoesNotSwitchViewWhileCapturing(t *testing.T) {
+	rm := enterHTTPInput(t)
+	updated, _ := rm.Update(rune1('2'))
+	rm = updated.(RootModel)
+	if rm.active != ViewHTTP {
+		t.Errorf("digit key switched view while capturing input: active=%d, want %d", rm.active, ViewHTTP)
+	}
+}
+
+func TestKeyRouting_QuitKeyDoesNotQuitWhileCapturing(t *testing.T) {
+	rm := enterHTTPInput(t)
+	updated, cmd := rm.Update(rune1('q'))
+	rm = updated.(RootModel)
+	if isQuit(cmd) {
+		t.Error("'q' quit the program while a view was capturing input")
+	}
+	if rm.active != ViewHTTP {
+		t.Errorf("'q' changed active view while capturing: active=%d", rm.active)
+	}
+}
+
+func TestKeyRouting_CtrlCQuitsWhileCapturing(t *testing.T) {
+	rm := enterHTTPInput(t)
+	_, cmd := rm.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if !isQuit(cmd) {
+		t.Error("ctrl+c did not quit while a view was capturing input")
+	}
+}
+
+func TestKeyRouting_DigitSwitchesViewWhenNotCapturing(t *testing.T) {
+	m := newTestModel(ViewDashboard)
+	updated, _ := m.Update(rune1('2'))
+	rm := updated.(RootModel)
+	if rm.active != ViewProcesses {
+		t.Errorf("digit key did not switch view when idle: active=%d, want %d", rm.active, ViewProcesses)
+	}
+}
+
+func TestSwitchTo_ChangesActiveAndRefreshes(t *testing.T) {
+	m := newTestModel(ViewDashboard)
+	m2, cmd := m.switchTo(ViewProcesses)
+	if m2.active != ViewProcesses {
+		t.Errorf("active = %d, want ViewProcesses (%d)", m2.active, ViewProcesses)
+	}
+	if cmd == nil {
+		t.Error("switching to a collecting view should return a refresh command")
+	}
+}
+
+func TestSwitchTo_SameViewIsNoOp(t *testing.T) {
+	m := newTestModel(ViewDashboard)
+	if _, cmd := m.switchTo(ViewDashboard); cmd != nil {
+		t.Error("switching to the already-active view should be a no-op (nil cmd)")
+	}
+}
 
 func newTestModel(active ViewID) RootModel {
 	cfg := &config.Config{}
@@ -122,6 +203,21 @@ func TestRenderBox_WideContentDoesNotPanic(t *testing.T) {
 
 	wide := strings.Repeat("y", 200)
 	_ = m.renderBox(wide, 3) // must not panic
+}
+
+// TestRenderBox_OverflowLineClampedToWidth verifies that a content line wider
+// than the inner area is truncated, so every rendered row stays exactly the
+// frame width and the right border cannot be pushed off-screen.
+func TestRenderBox_OverflowLineClampedToWidth(t *testing.T) {
+	m := newTestModel(ViewDashboard)
+	m.width = 102
+
+	out := m.renderBox(strings.Repeat("y", 500), 3)
+	for i, line := range strings.Split(out, "\n") {
+		if w := lipgloss.Width(line); w != m.width {
+			t.Errorf("renderBox line %d width = %d, want %d", i, w, m.width)
+		}
+	}
 }
 
 func TestFooterNoRefreshAnywhere(t *testing.T) {

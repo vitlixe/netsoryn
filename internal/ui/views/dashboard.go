@@ -3,6 +3,7 @@ package views
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ type Dashboard struct {
 	width  int
 	height int
 	loaded bool
+	active bool
 }
 
 func NewDashboard(cfg *config.Config, ctx context.Context) *Dashboard {
@@ -35,10 +37,20 @@ func NewDashboard(cfg *config.Config, ctx context.Context) *Dashboard {
 }
 
 func (d *Dashboard) Init() tea.Cmd {
-	return tea.Batch(
-		fetchDashData(d.ctx),
-		tickDash(d.cfg.RefreshInterval),
-	)
+	if d.active {
+		return tea.Batch(fetchDashData(d.ctx), tickDash(d.cfg.RefreshInterval))
+	}
+	return tickDash(d.cfg.RefreshInterval)
+}
+
+// SetActive pauses or resumes data collection when the view loses or gains
+// focus. On activation it refreshes immediately.
+func (d *Dashboard) SetActive(active bool) tea.Cmd {
+	d.active = active
+	if active {
+		return fetchDashData(d.ctx)
+	}
+	return nil
 }
 
 func (d *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -53,6 +65,9 @@ func (d *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.err = msg.err
 
 	case dashTickMsg:
+		if !d.active {
+			return d, tickDash(d.cfg.RefreshInterval)
+		}
 		return d, tea.Batch(fetchDashData(d.ctx), tickDash(d.cfg.RefreshInterval))
 	}
 	return d, nil
@@ -108,6 +123,7 @@ func (d *Dashboard) renderCPU(w int) string {
 	labelW, bw := dashSectionLayout(w, 8, 0, 10, 24)
 
 	row := func(label string, pct float64) string {
+		pct = safePct(pct)
 		return "  " + padRight(label, labelW) + " " +
 			dashboardBar(pct, bw) +
 			fmt.Sprintf("  %5.1f%%", pct)
@@ -138,6 +154,7 @@ func (d *Dashboard) renderMemory(w int) string {
 	labelW, bw := dashSectionLayout(w, 8, maxSizeW, 10, 24)
 
 	row := func(label string, pct float64, sizeStr string) string {
+		pct = safePct(pct)
 		return "  " + padRight(label, labelW) + " " +
 			dashboardBar(pct, bw) +
 			fmt.Sprintf("  %5.1f%%  ", pct) +
@@ -198,9 +215,10 @@ func (d *Dashboard) renderDisks(w int) string {
 	for _, disk := range d.data.Disks {
 		mp := diskMountLabel(disk.Mountpoint, labelW)
 		sizeStr := fmtBytes(disk.Used) + " / " + fmtBytes(disk.Total)
+		pct := safePct(disk.UsedPercent)
 		line := "  " + padRight(mp, labelW) + " " +
-			dashboardBar(disk.UsedPercent, bw) +
-			fmt.Sprintf("  %5.1f%%  ", disk.UsedPercent) +
+			dashboardBar(pct, bw) +
+			fmt.Sprintf("  %5.1f%%  ", pct) +
 			padRight(sizeStr, maxSizeW)
 		lines = append(lines, line)
 	}
@@ -367,6 +385,7 @@ func shortenTailPath(path string, maxLen int) string {
 // dashboardBar renders a thin horizontal bar using ━ / ─ so that
 // adjacent rows don't merge into a solid block like full-block chars do.
 func dashboardBar(percent float64, width int) string {
+	percent = safePct(percent)
 	filled := int(float64(width) * percent / 100)
 	if filled > width {
 		filled = width
@@ -390,17 +409,33 @@ func dashboardBar(percent float64, width int) string {
 		lipgloss.NewStyle().Foreground(styles.ColorBorder).Render(strings.Repeat("─", empty))
 }
 
+// safePct clamps a percentage to [0,100] and maps NaN/Inf — e.g. a 0/0 usage
+// ratio on a host with no swap — to 0, so bars and labels never render "NaN%"
+// or a garbage-width bar.
+func safePct(p float64) float64 {
+	if math.IsNaN(p) || math.IsInf(p, 0) || p < 0 {
+		return 0
+	}
+	if p > 100 {
+		return 100
+	}
+	return p
+}
+
 func fmtBytes(b uint64) string {
 	const unit = 1024
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
 	}
+	// uint64 can hold up to ~16 EiB, so the unit table must reach EB; the loop
+	// also stops incrementing exp at the last unit to avoid an out-of-range index.
+	units := []string{"KB", "MB", "GB", "TB", "PB", "EB"}
 	div, exp := uint64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
+	for n := b / unit; n >= unit && exp < len(units)-1; n /= unit {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %s", float64(b)/float64(div), []string{"KB", "MB", "GB", "TB"}[exp])
+	return fmt.Sprintf("%.1f %s", float64(b)/float64(div), units[exp])
 }
 
 func fmtUptime(s uint64) string {

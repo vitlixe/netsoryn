@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -22,6 +23,65 @@ func trimLastRune(s string) string {
 type ContentSizeMsg struct {
 	Width  int
 	Height int
+}
+
+// visibleBlocks returns how many consecutive blocks starting at offset fit
+// within height rendered lines; each block contributes its own line count. At
+// least one block is reported so a block taller than the viewport can still be
+// reached by scrolling.
+func visibleBlocks(blocks []string, offset, height int) int {
+	if offset < 0 || offset >= len(blocks) {
+		return 0
+	}
+	if height < 1 {
+		height = 1
+	}
+	used, count := 0, 0
+	for i := offset; i < len(blocks); i++ {
+		h := strings.Count(blocks[i], "\n") + 1
+		if count > 0 && used+h > height {
+			break
+		}
+		used += h
+		count++
+	}
+	return count
+}
+
+// renderScrollableList renders heading followed by a vertical window of blocks
+// starting at offset, sized to totalHeight, with "↑/↓ N more" markers when
+// content is hidden above or below. Used by the DNS and HTTP result lists.
+func renderScrollableList(heading string, blocks []string, offset, totalHeight int) string {
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(blocks)-1 {
+		offset = len(blocks) - 1
+	}
+
+	headingLines := strings.Count(heading, "\n") + 1
+	avail := totalHeight - headingLines - 2 // reserve rows for the scroll markers
+	if avail < 1 {
+		avail = 1
+	}
+
+	visible := visibleBlocks(blocks, offset, avail)
+	end := offset + visible
+
+	var sb strings.Builder
+	sb.WriteString(heading)
+	sb.WriteString("\n")
+	if offset > 0 {
+		sb.WriteString("\n  " + styles.Muted.Render(fmt.Sprintf("↑ %d more above", offset)))
+	}
+	for i := offset; i < end; i++ {
+		sb.WriteString("\n")
+		sb.WriteString(blocks[i])
+	}
+	if end < len(blocks) {
+		sb.WriteString("\n  " + styles.Muted.Render(fmt.Sprintf("↓ %d more below", len(blocks)-end)))
+	}
+	return sb.String()
 }
 
 // syncTopRow returns the updated first-visible-row index after a cursor move.

@@ -32,3 +32,22 @@ func TestFetchHTTPDataUsesConfiguredTimeout(t *testing.T) {
 		t.Fatal("result error is empty; configured timeout was not applied")
 	}
 }
+
+func TestNormalizeURL(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"https://example.com", "https://example.com"},
+		{"http://example.com", "http://example.com"},
+		{"example.com", "https://example.com"},
+		{"httpbin.org", "https://httpbin.org"}, // must not be mistaken for a scheme
+		{"httpd.apache.org", "https://httpd.apache.org"},
+		{"localhost:8080", "https://localhost:8080"},
+	}
+	for _, c := range cases {
+		if got := normalizeURL(c.in); got != c.want {
+			t.Errorf("normalizeURL(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

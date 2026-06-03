@@ -37,6 +37,7 @@ type Ports struct {
 	width     int
 	height    int
 	loaded    bool
+	active    bool
 }
 
 func NewPorts(cfg *config.Config, ctx context.Context) *Ports {
@@ -55,10 +56,20 @@ func NewPorts(cfg *config.Config, ctx context.Context) *Ports {
 }
 
 func (p *Ports) Init() tea.Cmd {
-	return tea.Batch(
-		fetchPortsData(p.ctx, p.cfg.PortsListenOnly),
-		tickPorts(p.cfg.RefreshInterval),
-	)
+	if p.active {
+		return tea.Batch(fetchPortsData(p.ctx, p.cfg.PortsListenOnly), tickPorts(p.cfg.RefreshInterval))
+	}
+	return tickPorts(p.cfg.RefreshInterval)
+}
+
+// SetActive pauses or resumes data collection when the view loses or gains
+// focus. On activation it refreshes immediately.
+func (p *Ports) SetActive(active bool) tea.Cmd {
+	p.active = active
+	if active {
+		return fetchPortsData(p.ctx, p.cfg.PortsListenOnly)
+	}
+	return nil
 }
 
 func (p *Ports) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -78,6 +89,9 @@ func (p *Ports) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case portsTickMsg:
+		if !p.active {
+			return p, tickPorts(p.cfg.RefreshInterval)
+		}
 		return p, tea.Batch(fetchPortsData(p.ctx, p.cfg.PortsListenOnly), tickPorts(p.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
@@ -98,9 +112,11 @@ func (p *Ports) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "/":
 				// ignore: re-pressing / during filter input is a no-op
 			default:
-				p.filterBuf.WriteString(msg.String())
-				p.filter = p.filterBuf.String()
-				p.rebuildRows()
+				if len(msg.Runes) > 0 {
+					p.filterBuf.WriteString(string(msg.Runes))
+					p.filter = p.filterBuf.String()
+					p.rebuildRows()
+				}
 			}
 			return p, nil
 		}
@@ -134,6 +150,9 @@ func (p *Ports) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return p, nil
 }
+
+// CapturingInput reports whether the filter editor is consuming key input.
+func (p *Ports) CapturingInput() bool { return p.filtering }
 
 func (p *Ports) View() string {
 	if !p.loaded {

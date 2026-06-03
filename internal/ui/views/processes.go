@@ -3,6 +3,7 @@ package views
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -50,6 +51,12 @@ type Processes struct {
 	width     int
 	height    int
 	loaded    bool
+	active    bool
+
+	// CPU rate state: previous per-PID cumulative CPU seconds and sample time,
+	// used to derive instantaneous CPUPercent.
+	prevCPU  map[int32]float64
+	prevTime time.Time
 }
 
 func NewProcesses(cfg *config.Config, ctx context.Context) *Processes {
@@ -70,10 +77,20 @@ func NewProcesses(cfg *config.Config, ctx context.Context) *Processes {
 }
 
 func (p *Processes) Init() tea.Cmd {
-	return tea.Batch(
-		fetchProcData(p.ctx, p.cfg.ProcessLimit),
-		tickProc(p.cfg.RefreshInterval),
-	)
+	if p.active {
+		return tea.Batch(fetchProcData(p.ctx, p.cfg.ProcessLimit), tickProc(p.cfg.RefreshInterval))
+	}
+	return tickProc(p.cfg.RefreshInterval)
+}
+
+// SetActive pauses or resumes data collection when the view loses or gains
+// focus. On activation it refreshes immediately.
+func (p *Processes) SetActive(active bool) tea.Cmd {
+	p.active = active
+	if active {
+		return fetchProcData(p.ctx, p.cfg.ProcessLimit)
+	}
+	return nil
 }
 
 func (p *Processes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -89,12 +106,16 @@ func (p *Processes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		p.loaded = true
 		p.err = msg.err
 		if msg.err == nil {
+			p.computeCPURates(msg.data.Processes)
 			p.data = msg.data.Processes
 			p.sortData()
 			p.rebuildRows()
 		}
 
 	case procTickMsg:
+		if !p.active {
+			return p, tickProc(p.cfg.RefreshInterval)
+		}
 		return p, tea.Batch(fetchProcData(p.ctx, p.cfg.ProcessLimit), tickProc(p.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
@@ -115,9 +136,11 @@ func (p *Processes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "/":
 				// ignore: re-pressing / during filter input is a no-op
 			default:
-				p.filterBuf.WriteString(msg.String())
-				p.filter = p.filterBuf.String()
-				p.rebuildRows()
+				if len(msg.Runes) > 0 {
+					p.filterBuf.WriteString(string(msg.Runes))
+					p.filter = p.filterBuf.String()
+					p.rebuildRows()
+				}
 			}
 			return p, nil
 		}
@@ -157,6 +180,9 @@ func (p *Processes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return p, nil
 }
 
+// CapturingInput reports whether the filter editor is consuming key input.
+func (p *Processes) CapturingInput() bool { return p.filtering }
+
 func (p *Processes) View() string {
 	if !p.loaded {
 		return styles.Muted.Render("  Loading processes…")
@@ -176,6 +202,42 @@ func (p *Processes) View() string {
 	}
 
 	return fmt.Sprintf("%s\n%s", header, wrapTableWithScrollHints(p.table, p.topRow))
+}
+
+// computeCPURates fills CPUPercent with instantaneous usage derived from the
+// change in each process's cumulative CPU time since the previous sample. The
+// first sample for a PID reports 0 until a delta is available.
+func (p *Processes) computeCPURates(procs []collectors.ProcessStat) {
+	now := time.Now()
+	var dt float64
+	if !p.prevTime.IsZero() {
+		dt = now.Sub(p.prevTime).Seconds()
+	}
+	numCPU := runtime.NumCPU()
+	next := make(map[int32]float64, len(procs))
+	for i := range procs {
+		cur := procs[i].CPUTime
+		next[procs[i].PID] = cur
+		if prev, ok := p.prevCPU[procs[i].PID]; ok && dt > 0 {
+			procs[i].CPUPercent = cpuPercent(cur-prev, dt, numCPU)
+		}
+	}
+	p.prevCPU = next
+	p.prevTime = now
+}
+
+// cpuPercent converts a CPU-time delta (seconds) over a wall-clock delta
+// (seconds) into a percentage of total system capacity (0..100 across all
+// cores), matching gopsutil's Process.Percent scale.
+func cpuPercent(deltaCPU, deltaWall float64, numCPU int) float64 {
+	if deltaWall <= 0 || numCPU <= 0 || deltaCPU <= 0 {
+		return 0
+	}
+	pct := deltaCPU / deltaWall * 100 / float64(numCPU)
+	if pct > 100 {
+		return 100
+	}
+	return pct
 }
 
 func (p *Processes) sortData() {

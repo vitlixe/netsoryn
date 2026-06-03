@@ -37,6 +37,7 @@ type Docker struct {
 	width     int
 	height    int
 	loaded    bool
+	active    bool
 }
 
 func NewDocker(cfg *config.Config, ctx context.Context) *Docker {
@@ -48,7 +49,21 @@ func NewDocker(cfg *config.Config, ctx context.Context) *Docker {
 }
 
 func (d *Docker) Init() tea.Cmd {
-	return tea.Batch(fetchDockerData(d.ctx, d.cfg.DockerSocket), tickDocker(d.cfg.RefreshInterval))
+	if d.active {
+		return tea.Batch(fetchDockerData(d.ctx, d.cfg.DockerSocket), tickDocker(d.cfg.RefreshInterval))
+	}
+	return tickDocker(d.cfg.RefreshInterval)
+}
+
+// SetActive pauses or resumes data collection when the view loses or gains
+// focus. On activation it refreshes immediately, avoiding a background
+// `docker ps` subprocess every refresh while the view is hidden.
+func (d *Docker) SetActive(active bool) tea.Cmd {
+	d.active = active
+	if active {
+		return fetchDockerData(d.ctx, d.cfg.DockerSocket)
+	}
+	return nil
 }
 
 func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -66,6 +81,9 @@ func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case dockerTickMsg:
+		if !d.active {
+			return d, tickDocker(d.cfg.RefreshInterval)
+		}
 		return d, tea.Batch(fetchDockerData(d.ctx, d.cfg.DockerSocket), tickDocker(d.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
@@ -86,9 +104,11 @@ func (d *Docker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "/":
 				// ignore: re-pressing / during filter input is a no-op
 			default:
-				d.filterBuf.WriteString(msg.String())
-				d.filter = d.filterBuf.String()
-				d.rebuildRows()
+				if len(msg.Runes) > 0 {
+					d.filterBuf.WriteString(string(msg.Runes))
+					d.filter = d.filterBuf.String()
+					d.rebuildRows()
+				}
 			}
 			return d, nil
 		}
@@ -157,6 +177,9 @@ func (d *Docker) visibleHeight() int {
 	}
 	return h
 }
+
+// CapturingInput reports whether the filter editor is consuming key input.
+func (d *Docker) CapturingInput() bool { return d.filtering }
 
 func (d *Docker) View() string {
 	if !d.loaded {

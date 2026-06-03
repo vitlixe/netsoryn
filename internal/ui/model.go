@@ -93,6 +93,13 @@ func New(cfg *config.Config, version string) RootModel {
 		defaultView = ViewHTTP
 	}
 
+	// Only the starting view collects on launch; the rest resume when first
+	// shown (see switchTo). The returned refresh cmd is unused here because
+	// Init fetches for the active view.
+	if a, ok := vms[defaultView].(activatable); ok {
+		a.SetActive(true)
+	}
+
 	return RootModel{
 		cfg:        cfg,
 		viewModels: vms,
@@ -110,6 +117,44 @@ func (m RootModel) Init() tea.Cmd {
 		cmds[i] = v.Init()
 	}
 	return tea.Batch(cmds...)
+}
+
+// inputCapturer is implemented by views that capture raw key input, such as a
+// text field or an active filter editor. While the active view reports that it
+// is capturing, the root model routes keys to it instead of interpreting them
+// as global shortcuts.
+type inputCapturer interface {
+	CapturingInput() bool
+}
+
+// activatable is implemented by views whose data collection should pause while
+// they are not the active view, so every collector (process enumeration,
+// `docker ps`, service queries, CPU sampling) does not run in the background.
+// SetActive(true) returns a command that refreshes the view immediately on
+// focus; SetActive(false) suspends fetching until the view is shown again.
+type activatable interface {
+	SetActive(bool) tea.Cmd
+}
+
+// switchTo changes the active view, pausing the previously active view and
+// resuming the new one. It returns any refresh command produced on activation.
+func (m RootModel) switchTo(v ViewID) (RootModel, tea.Cmd) {
+	if v == m.active {
+		return m, nil
+	}
+	var cmds []tea.Cmd
+	if a, ok := m.viewModels[m.active].(activatable); ok {
+		if cmd := a.SetActive(false); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+	m.active = v
+	if a, ok := m.viewModels[m.active].(activatable); ok {
+		if cmd := a.SetActive(true); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+	return m, tea.Batch(cmds...)
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────
@@ -142,6 +187,19 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case tea.KeyMsg:
+		// Ctrl+C always quits, even while a view is capturing text input.
+		if msg.Type == tea.KeyCtrlC {
+			m.cancel()
+			return m, tea.Quit
+		}
+		// A view capturing raw input (filter editor or a text field) gets first
+		// refusal on all other keys, so digits, q, ?, and tab are not hijacked as
+		// global shortcuts mid-entry.
+		if c, ok := m.viewModels[m.active].(inputCapturer); ok && c.CapturingInput() {
+			var cmd tea.Cmd
+			m.viewModels[m.active], cmd = m.viewModels[m.active].Update(msg)
+			return m, cmd
+		}
 		if key.Matches(msg, m.globalKeys.Quit) {
 			m.cancel()
 			return m, tea.Quit
@@ -158,37 +216,27 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.String() {
 		case "1":
-			m.active = ViewDashboard
-			return m, nil
+			return m.switchTo(ViewDashboard)
 		case "2":
-			m.active = ViewProcesses
-			return m, nil
+			return m.switchTo(ViewProcesses)
 		case "3":
-			m.active = ViewNetwork
-			return m, nil
+			return m.switchTo(ViewNetwork)
 		case "4":
-			m.active = ViewPorts
-			return m, nil
+			return m.switchTo(ViewPorts)
 		case "5":
-			m.active = ViewServices
-			return m, nil
+			return m.switchTo(ViewServices)
 		case "6":
-			m.active = ViewDocker
-			return m, nil
+			return m.switchTo(ViewDocker)
 		case "7":
-			m.active = ViewDNS
-			return m, nil
+			return m.switchTo(ViewDNS)
 		case "8":
-			m.active = ViewHTTP
-			return m, nil
+			return m.switchTo(ViewHTTP)
 		}
 		if key.Matches(msg, m.globalKeys.Tab) {
-			m.active = (m.active + 1) % numViews
-			return m, nil
+			return m.switchTo((m.active + 1) % numViews)
 		}
 		if key.Matches(msg, m.globalKeys.BackTab) {
-			m.active = (m.active - 1 + numViews) % numViews
-			return m, nil
+			return m.switchTo((m.active - 1 + numViews) % numViews)
 		}
 		var cmd tea.Cmd
 		m.viewModels[m.active], cmd = m.viewModels[m.active].Update(msg)
@@ -265,6 +313,7 @@ func (m RootModel) renderBox(content string, innerH int) string {
 		lines = append(lines, "")
 	}
 
+	innerW := m.width - 2
 	var sb strings.Builder
 	sb.WriteString(topBorder)
 	sb.WriteByte('\n')
@@ -273,8 +322,12 @@ func (m RootModel) renderBox(content string, innerH int) string {
 		if i < len(lines) {
 			line = lines[i]
 		}
-		lineW := lipgloss.Width(line)
-		pad := m.width - 2 - lineW
+		if lipgloss.Width(line) > innerW {
+			// Clamp overflowing content so it cannot push past the right border
+			// and corrupt the frame. MaxWidth truncates ANSI-aware.
+			line = lipgloss.NewStyle().MaxWidth(innerW).Render(line)
+		}
+		pad := innerW - lipgloss.Width(line)
 		if pad < 0 {
 			pad = 0
 		}
@@ -377,6 +430,9 @@ func (m RootModel) renderFooter() string {
 	}
 	if m.active == ViewHTTP {
 		hints = append(hints, hint{"n", "new check"})
+	}
+	if m.active == ViewDNS || m.active == ViewHTTP {
+		hints = append(hints, hint{"j/k", "scroll"})
 	}
 	hints = append(hints,
 		hint{"<tab>", "next view"},
