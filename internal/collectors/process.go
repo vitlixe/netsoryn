@@ -35,7 +35,13 @@ func (c *ProcessCollector) Collect(ctx context.Context) (interface{}, error) {
 			continue
 		}
 
-		cpuPct, _ := p.CPUPercentWithContext(ctx)
+		// Cumulative CPU seconds; the view derives an instantaneous percentage
+		// from the delta between samples (gopsutil's CPUPercent is a lifetime
+		// average, which is misleading for a "top by CPU" listing).
+		var cpuTime float64
+		if t, err := p.TimesWithContext(ctx); err == nil && t != nil {
+			cpuTime = t.User + t.System
+		}
 		memPct, _ := p.MemoryPercentWithContext(ctx)
 		memInfo, _ := p.MemoryInfoWithContext(ctx)
 		status, _ := p.StatusWithContext(ctx)
@@ -57,7 +63,7 @@ func (c *ProcessCollector) Collect(ctx context.Context) (interface{}, error) {
 			PID:        p.Pid,
 			Name:       name,
 			Username:   username,
-			CPUPercent: cpuPct,
+			CPUTime:    cpuTime,
 			MemPercent: memPct,
 			MemRSS:     rss,
 			Threads:    threads,

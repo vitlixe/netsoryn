@@ -1,16 +1,8 @@
 package collectors
 
 import (
-	"context"
 	"time"
 )
-
-// Collector is the base interface for all data sources.
-type Collector interface {
-	Name() string
-	Collect(ctx context.Context) (interface{}, error)
-	Interval() time.Duration
-}
 
 // SystemData holds CPU, memory, disk, and load metrics.
 type SystemData struct {
@@ -50,6 +42,7 @@ type ProcessStat struct {
 	Name       string
 	Username   string
 	CPUPercent float64
+	CPUTime    float64 // cumulative CPU seconds; used to derive instantaneous CPUPercent
 	MemPercent float32
 	MemRSS     uint64
 	Status     string
