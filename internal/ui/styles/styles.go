@@ -1,6 +1,8 @@
 package styles
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -211,11 +213,31 @@ func DockerStateBadge(state string) string {
 	}
 }
 
-// Truncate truncates a string to n runes.
+// Truncate shortens s so its visual width is at most n columns, appending "…"
+// when content is dropped. It measures visual width (not rune count) so wide
+// runes such as CJK glyphs or emoji do not overflow a fixed-width table column.
+// n <= 0 yields the empty string.
 func Truncate(s string, n int) string {
-	runes := []rune(s)
-	if len(runes) <= n {
+	if n <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= n {
 		return s
 	}
-	return string(runes[:n-1]) + "…"
+	if n == 1 {
+		return "…"
+	}
+	// Reserve one column for the ellipsis, then keep whole runes that fit.
+	limit := n - 1
+	width := 0
+	var b strings.Builder
+	for _, r := range s {
+		rw := lipgloss.Width(string(r))
+		if width+rw > limit {
+			break
+		}
+		b.WriteRune(r)
+		width += rw
+	}
+	return b.String() + "…"
 }
