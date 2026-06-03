@@ -57,8 +57,20 @@ func (c *DockerCollector) Collect(ctx context.Context) (interface{}, error) {
 		return DockerData{Available: false}, nil
 	}
 
+	// Docker responded; a partial parse is still worth showing.
+	containers, _ := parseDockerPS(out)
+	return DockerData{Containers: containers, Available: true}, nil
+}
+
+// parseDockerPS parses the newline-delimited JSON emitted by `docker ps`
+// (one object per line). Malformed lines are skipped. The scanner buffer is
+// enlarged so a container with a long port mapping is not silently dropped
+// at the default 64 KB token limit. Any scan error is returned alongside the
+// containers parsed so far so callers can still use the partial result.
+func parseDockerPS(out []byte) ([]ContainerStat, error) {
 	var containers []ContainerStat
 	scanner := bufio.NewScanner(bytes.NewReader(out))
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -78,6 +90,5 @@ func (c *DockerCollector) Collect(ctx context.Context) (interface{}, error) {
 			Created: entry.Created,
 		})
 	}
-
-	return DockerData{Containers: containers, Available: true}, nil
+	return containers, scanner.Err()
 }
