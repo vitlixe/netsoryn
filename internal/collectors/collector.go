@@ -6,30 +6,39 @@ import (
 
 // SystemData holds CPU, memory, disk, and load metrics.
 type SystemData struct {
-	CPUPercents      []float64
-	CPUTotal         float64
-	MemTotal         uint64
-	MemUsed          uint64
-	MemPercent       float64
-	SwapTotal        uint64
-	SwapUsed         uint64
-	SwapPercent      float64
-	Disks            []DiskStat
-	LoadAvg1         float64
-	LoadAvg5         float64
-	LoadAvg15        float64
-	LoadAvgSupported bool
-	UptimeSeconds    uint64
-	Hostname         string
+	CPUPercents      []float64    `json:"cpu_percents"`
+	CPUTotal         float64      `json:"cpu_total"`
+	MemTotal         uint64       `json:"mem_total"`
+	MemUsed          uint64       `json:"mem_used"`
+	MemPercent       float64      `json:"mem_percent"`
+	SwapTotal        uint64       `json:"swap_total"`
+	SwapUsed         uint64       `json:"swap_used"`
+	SwapPercent      float64      `json:"swap_percent"`
+	Disks            []DiskStat   `json:"disks"`
+	LoadAvg1         float64      `json:"load_avg_1"`
+	LoadAvg5         float64      `json:"load_avg_5"`
+	LoadAvg15        float64      `json:"load_avg_15"`
+	LoadAvgSupported bool         `json:"load_avg_supported"`
+	UptimeSeconds    uint64       `json:"uptime_seconds"`
+	Hostname         string       `json:"hostname"`
+	DiskIO           []DiskIOStat `json:"disk_io"`
 }
 
 type DiskStat struct {
-	Mountpoint  string
-	Total       uint64
-	Used        uint64
-	Free        uint64
-	UsedPercent float64
-	Fstype      string
+	Mountpoint  string  `json:"mountpoint"`
+	Total       uint64  `json:"total"`
+	Used        uint64  `json:"used"`
+	Free        uint64  `json:"free"`
+	UsedPercent float64 `json:"used_percent"`
+	Fstype      string  `json:"fstype"`
+}
+
+// DiskIOStat holds cumulative I/O byte counters for one block device. The
+// dashboard derives read/write throughput from the delta between two samples.
+type DiskIOStat struct {
+	Name       string `json:"name"`
+	ReadBytes  uint64 `json:"read_bytes"`
+	WriteBytes uint64 `json:"write_bytes"`
 }
 
 // ProcessData holds a snapshot of running processes.

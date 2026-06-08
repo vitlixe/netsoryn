@@ -3,6 +3,7 @@ package collectors
 import (
 	"context"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -68,6 +69,24 @@ func (c *SystemCollector) Collect(ctx context.Context) (interface{}, error) {
 				Free:        usage.Free,
 				UsedPercent: usage.UsedPercent,
 				Fstype:      p.Fstype,
+			})
+		}
+	}
+
+	// Disk I/O counters (cumulative; the dashboard derives per-second rates
+	// from the delta between two samples). Sorted for stable output.
+	if ioCounters, err := disk.IOCountersWithContext(ctx); err == nil {
+		names := make([]string, 0, len(ioCounters))
+		for name := range ioCounters {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			st := ioCounters[name]
+			data.DiskIO = append(data.DiskIO, DiskIOStat{
+				Name:       name,
+				ReadBytes:  st.ReadBytes,
+				WriteBytes: st.WriteBytes,
 			})
 		}
 	}

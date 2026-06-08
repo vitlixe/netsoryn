@@ -30,6 +30,13 @@ type Dashboard struct {
 	height int
 	loaded bool
 	active bool
+
+	// Disk I/O rate state: previous cumulative counters per device and the
+	// sample time, plus the most recent aggregate read/write rates.
+	prevDiskIO    map[string]collectors.DiskIOStat
+	prevTime      time.Time
+	diskReadRate  float64
+	diskWriteRate float64
 }
 
 func NewDashboard(cfg *config.Config, ctx context.Context) *Dashboard {
@@ -63,6 +70,9 @@ func (d *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.loaded = true
 		d.data = msg.data
 		d.err = msg.err
+		if msg.err == nil {
+			d.computeDiskIO()
+		}
 
 	case dashTickMsg:
 		if !d.active {
@@ -71,6 +81,31 @@ func (d *Dashboard) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return d, tea.Batch(fetchDashData(d.ctx), tickDash(d.cfg.RefreshInterval))
 	}
 	return d, nil
+}
+
+// computeDiskIO derives aggregate read/write throughput across all block
+// devices from the change in their cumulative counters since the last sample.
+func (d *Dashboard) computeDiskIO() {
+	now := time.Now()
+	var dt float64
+	if !d.prevTime.IsZero() {
+		dt = now.Sub(d.prevTime).Seconds()
+	}
+	next := make(map[string]collectors.DiskIOStat, len(d.data.DiskIO))
+	var read, write uint64
+	for _, io := range d.data.DiskIO {
+		next[io.Name] = io
+		if prev, ok := d.prevDiskIO[io.Name]; ok {
+			read += counterDelta(io.ReadBytes, prev.ReadBytes)
+			write += counterDelta(io.WriteBytes, prev.WriteBytes)
+		}
+	}
+	if dt > 0 {
+		d.diskReadRate = perSecond(read, dt)
+		d.diskWriteRate = perSecond(write, dt)
+	}
+	d.prevDiskIO = next
+	d.prevTime = now
 }
 
 func (d *Dashboard) View() string {
@@ -221,6 +256,12 @@ func (d *Dashboard) renderDisks(w int) string {
 			fmt.Sprintf("  %5.1f%%  ", pct) +
 			padRight(sizeStr, maxSizeW)
 		lines = append(lines, line)
+	}
+	if len(d.data.DiskIO) > 0 {
+		ioLine := "  " + padRight("I/O", labelW) + " " +
+			styles.Muted.Render("R ") + styles.ValueAccent.Render(fmtRate(d.diskReadRate)) +
+			styles.Muted.Render("  W ") + styles.ValueAccent.Render(fmtRate(d.diskWriteRate))
+		lines = append(lines, ioLine)
 	}
 	return strings.Join(lines, "\n")
 }
