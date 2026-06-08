@@ -95,7 +95,7 @@ func (h *HTTP) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					h.input.Reset()
 					h.input.Blur()
 					h.inputMode = false
-					return h, checkHTTP(h.ctx, url, 10*time.Second)
+					return h, checkHTTP(h.ctx, url, h.cfg.HTTPTimeout)
 				}
 				h.inputMode = false
 				h.input.Blur()

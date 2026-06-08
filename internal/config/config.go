@@ -22,13 +22,20 @@ type DNSCheck struct {
 	Servers []string `mapstructure:"servers"`
 }
 
+type TCPCheck struct {
+	Target  string        `mapstructure:"target"`
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
 type Config struct {
 	RefreshInterval time.Duration `mapstructure:"refresh_interval"`
 	DefaultView     string        `mapstructure:"default_view"`
 	LogLevel        string        `mapstructure:"log_level"`
 	LogFile         string        `mapstructure:"log_file"`
 	HTTPChecks      []HTTPCheck   `mapstructure:"http_checks"`
+	HTTPTimeout     time.Duration `mapstructure:"http_timeout"`
 	DNSChecks       []DNSCheck    `mapstructure:"dns_checks"`
+	TCPChecks       []TCPCheck    `mapstructure:"tcp_checks"`
 	DockerSocket    string        `mapstructure:"docker_socket"`
 	ProcessLimit    int           `mapstructure:"process_limit"`
 	PortsListenOnly bool          `mapstructure:"ports_listen_only"`
@@ -43,6 +50,7 @@ func Load(cfgFile string) (*Config, error) {
 	v.SetDefault("log_file", "")
 	v.SetDefault("process_limit", 50)
 	v.SetDefault("ports_listen_only", true)
+	v.SetDefault("http_timeout", 10)
 
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)
@@ -89,9 +97,17 @@ func validateConfig(cfg *Config) error {
 	if cfg.RefreshInterval <= 0 {
 		return fmt.Errorf("refresh_interval must be positive, got %v", cfg.RefreshInterval)
 	}
+	if cfg.HTTPTimeout < 0 {
+		return fmt.Errorf("http_timeout must be non-negative, got %v", cfg.HTTPTimeout)
+	}
 	for i, check := range cfg.HTTPChecks {
 		if check.Timeout < 0 {
 			return fmt.Errorf("http_checks[%d].timeout must be non-negative, got %v", i, check.Timeout)
+		}
+	}
+	for i, check := range cfg.TCPChecks {
+		if check.Timeout < 0 {
+			return fmt.Errorf("tcp_checks[%d].timeout must be non-negative, got %v", i, check.Timeout)
 		}
 	}
 	return nil

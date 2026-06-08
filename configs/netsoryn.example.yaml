@@ -10,7 +10,7 @@
 # Refresh interval for live data (seconds)
 refresh_interval: 2
 
-# Default view on startup: dashboard, processes, network, ports, services, docker, dns, http
+# Default view on startup: dashboard, processes, network, ports, services, docker, dns, http, tcp
 default_view: dashboard
 
 # Log level: debug, info, warn, error, disabled
@@ -27,12 +27,24 @@ http_checks:
   - url: "https://api.github.com"
     timeout: 10
 
+# Default timeout for ad-hoc HTTP checks started from the HTTP view (the "n" key).
+# Same format as http_checks timeout. Defaults to 10 seconds.
+http_timeout: 10
+
 # DNS checks: list of domains to resolve
 dns_checks:
   - domain: "example.com"
     servers:
       - "8.8.8.8:53"
       - "1.1.1.1:53"
+
+# TCP checks: host:port targets probed on startup, shown in the TCP view (key 9).
+# timeout accepts plain numbers (seconds) or Go duration strings; default 5s.
+tcp_checks:
+  - target: "1.1.1.1:53"
+  - target: "github.com:443"
+    timeout: 3
+  - target: "localhost:5432"
 
 # Docker: socket path override (empty = Docker default / DOCKER_HOST env)
 # Examples:

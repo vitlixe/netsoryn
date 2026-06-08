@@ -126,6 +126,67 @@ http_checks:
 	}
 }
 
+func TestLoad_HTTPTimeoutDefault(t *testing.T) {
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load(\"\") returned error: %v", err)
+	}
+	if cfg.HTTPTimeout != 10*time.Second {
+		t.Errorf("HTTPTimeout = %v, want %v", cfg.HTTPTimeout, 10*time.Second)
+	}
+}
+
+func TestLoad_ParsesHTTPTimeout(t *testing.T) {
+	cfg := loadConfigFromString(t, `
+refresh_interval: 2
+http_timeout: "2500ms"
+`)
+	if cfg.HTTPTimeout != 2500*time.Millisecond {
+		t.Errorf("HTTPTimeout = %v, want %v", cfg.HTTPTimeout, 2500*time.Millisecond)
+	}
+}
+
+func TestLoad_RejectsNegativeHTTPTimeoutDefault(t *testing.T) {
+	path := writeConfig(t, `
+refresh_interval: 2
+http_timeout: -1
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load returned nil error, want error for negative http_timeout")
+	}
+}
+
+func TestLoad_ParsesTCPChecks(t *testing.T) {
+	cfg := loadConfigFromString(t, `
+refresh_interval: 2
+tcp_checks:
+  - target: "1.1.1.1:53"
+  - target: "github.com:443"
+    timeout: 3
+`)
+	if len(cfg.TCPChecks) != 2 {
+		t.Fatalf("TCPChecks len = %d, want 2", len(cfg.TCPChecks))
+	}
+	if cfg.TCPChecks[0].Target != "1.1.1.1:53" {
+		t.Errorf("TCPChecks[0].Target = %q, want %q", cfg.TCPChecks[0].Target, "1.1.1.1:53")
+	}
+	if cfg.TCPChecks[1].Timeout != 3*time.Second {
+		t.Errorf("TCPChecks[1].Timeout = %v, want %v", cfg.TCPChecks[1].Timeout, 3*time.Second)
+	}
+}
+
+func TestLoad_RejectsNegativeTCPTimeout(t *testing.T) {
+	path := writeConfig(t, `
+refresh_interval: 2
+tcp_checks:
+  - target: "host:1"
+    timeout: -1
+`)
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load returned nil error, want error for negative tcp_checks timeout")
+	}
+}
+
 func TestLoad_EnvVarDurationString(t *testing.T) {
 	t.Setenv("NETSORYN_REFRESH_INTERVAL", "500ms")
 	cfg := loadConfigFromString(t, ``)
