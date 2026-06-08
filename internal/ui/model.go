@@ -29,6 +29,7 @@ const (
 	ViewDocker
 	ViewDNS
 	ViewHTTP
+	ViewTCP
 	numViews
 )
 
@@ -45,6 +46,7 @@ var viewMeta = [numViews]struct {
 	{"6", "DOCKER", "Docker"},
 	{"7", "DNS", "DNS"},
 	{"8", "HTTP", "HTTP"},
+	{"9", "TCP", "TCP Port"},
 }
 
 // RootModel is the top-level bubbletea model.
@@ -74,6 +76,7 @@ func New(cfg *config.Config, version string) RootModel {
 	vms[ViewDocker] = views.NewDocker(cfg, ctx)
 	vms[ViewDNS] = views.NewDNS(cfg, ctx)
 	vms[ViewHTTP] = views.NewHTTP(cfg, ctx)
+	vms[ViewTCP] = views.NewTCP(cfg, ctx)
 
 	defaultView := ViewDashboard
 	switch strings.ToLower(cfg.DefaultView) {
@@ -91,6 +94,8 @@ func New(cfg *config.Config, version string) RootModel {
 		defaultView = ViewDNS
 	case "http":
 		defaultView = ViewHTTP
+	case "tcp":
+		defaultView = ViewTCP
 	}
 
 	// Only the starting view collects on launch; the rest resume when first
@@ -231,6 +236,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.switchTo(ViewDNS)
 		case "8":
 			return m.switchTo(ViewHTTP)
+		case "9":
+			return m.switchTo(ViewTCP)
 		}
 		if key.Matches(msg, m.globalKeys.Tab) {
 			return m.switchTo((m.active + 1) % numViews)
@@ -431,7 +438,10 @@ func (m RootModel) renderFooter() string {
 	if m.active == ViewHTTP {
 		hints = append(hints, hint{"n", "new check"})
 	}
-	if m.active == ViewDNS || m.active == ViewHTTP {
+	if m.active == ViewTCP {
+		hints = append(hints, hint{"n", "new check"})
+	}
+	if m.active == ViewDNS || m.active == ViewHTTP || m.active == ViewTCP {
 		hints = append(hints, hint{"j/k", "scroll"})
 	}
 	hints = append(hints,
@@ -470,11 +480,11 @@ func (m RootModel) renderHelp() string {
 
 	type entry struct{ k, d string }
 	nav := []entry{
-		{"<1-8>", "Switch view"},
+		{"<1-9>", "Switch view"},
 		{"<tab>", "Next view"},
 		{"<shift+tab>", "Prev view"},
 		{"<j> / <k>", "Navigate (list/table views)"},
-		{"<gg> / <G>", "Top / bottom"},
+		{"<g> / <G>", "Top / bottom"},
 		{"<ctrl+d/u>", "Page down / up"},
 	}
 	actions := []entry{

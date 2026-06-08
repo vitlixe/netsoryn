@@ -88,7 +88,7 @@ func DefaultNavKeyMap() NavKeyMap {
 		),
 		Top: key.NewBinding(
 			key.WithKeys("g"),
-			key.WithHelp("gg", "top"),
+			key.WithHelp("g", "top"),
 		),
 		Bottom: key.NewBinding(
 			key.WithKeys("G"),
@@ -120,11 +120,11 @@ func DefaultNavKeyMap() NavKeyMap {
 // HelpEntries returns a formatted list of global shortcuts for the help overlay.
 func HelpEntries() [][2]string {
 	return [][2]string{
-		{"1-8", "Switch view"},
+		{"1-9", "Switch view"},
 		{"tab", "Next view"},
 		{"shift+tab", "Prev view"},
 		{"j/k", "Navigate down/up"},
-		{"gg/G", "Top/Bottom"},
+		{"g/G", "Top/Bottom"},
 		{"ctrl+d/u", "Page down/up"},
 		{"/", "Filter"},
 		{"esc", "Clear filter / back"},
