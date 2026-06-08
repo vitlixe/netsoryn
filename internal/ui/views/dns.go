@@ -44,27 +44,39 @@ func NewDNS(cfg *config.Config, ctx context.Context) *DNS {
 	ti.CharLimit = 253
 	ti.Width = 40
 
-	servers := []string{"8.8.8.8:53", "1.1.1.1:53"}
-	domains := make([]string, 0, len(cfg.DNSChecks))
-	for _, c := range cfg.DNSChecks {
-		domains = append(domains, c.Domain)
-		if len(c.Servers) > 0 {
-			servers = c.Servers
-		}
-	}
-
 	d := &DNS{
 		cfg:     cfg,
 		ctx:     ctx,
 		input:   ti,
-		servers: servers,
+		servers: firstConfiguredServers(cfg.DNSChecks),
 	}
 
-	if len(domains) > 0 {
+	if len(cfg.DNSChecks) > 0 {
 		d.loaded = true
 	}
 
 	return d
+}
+
+// firstConfiguredServers returns the servers from the first DNS check that
+// specifies any; used for ad-hoc interactive queries. nil means "use defaults".
+func firstConfiguredServers(checks []config.DNSCheck) []string {
+	for _, c := range checks {
+		if len(c.Servers) > 0 {
+			return c.Servers
+		}
+	}
+	return nil
+}
+
+// dnsQueries maps configured checks to collector queries, preserving each
+// check's own server list instead of collapsing them into one.
+func dnsQueries(checks []config.DNSCheck) []collectors.DNSQuery {
+	queries := make([]collectors.DNSQuery, 0, len(checks))
+	for _, c := range checks {
+		queries = append(queries, collectors.DNSQuery{Domain: c.Domain, Servers: c.Servers})
+	}
+	return queries
 }
 
 func (d *DNS) Init() tea.Cmd {
@@ -72,12 +84,7 @@ func (d *DNS) Init() tea.Cmd {
 		d.loaded = true
 		return nil
 	}
-
-	domains := make([]string, 0, len(d.cfg.DNSChecks))
-	for _, c := range d.cfg.DNSChecks {
-		domains = append(domains, c.Domain)
-	}
-	return tea.Batch(fetchDNSData(d.ctx, domains, d.servers), tickDNS())
+	return tea.Batch(fetchDNSData(d.ctx, dnsQueries(d.cfg.DNSChecks)), tickDNS())
 }
 
 // CapturingInput reports whether the domain text field is consuming key input.
@@ -106,11 +113,7 @@ func (d *DNS) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case dnsTickMsg:
 		if len(d.cfg.DNSChecks) > 0 {
-			domains := make([]string, 0, len(d.cfg.DNSChecks))
-			for _, c := range d.cfg.DNSChecks {
-				domains = append(domains, c.Domain)
-			}
-			return d, tea.Batch(fetchDNSData(d.ctx, domains, d.servers), tickDNS())
+			return d, tea.Batch(fetchDNSData(d.ctx, dnsQueries(d.cfg.DNSChecks)), tickDNS())
 		}
 
 	case tea.KeyMsg:
@@ -241,9 +244,9 @@ func (d *DNS) renderResult(r collectors.DNSResult) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-func fetchDNSData(ctx context.Context, domains, servers []string) tea.Cmd {
+func fetchDNSData(ctx context.Context, queries []collectors.DNSQuery) tea.Cmd {
 	return func() tea.Msg {
-		c := collectors.NewDNSCollector(domains, servers)
+		c := collectors.NewDNSCollector(queries)
 		raw, err := c.Collect(ctx)
 		if err != nil {
 			return dnsDataMsg{err: err}

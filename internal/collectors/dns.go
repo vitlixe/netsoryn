@@ -4,35 +4,54 @@ import (
 	"context"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
-type DNSCollector struct {
-	domains []string
-	servers []string
+// defaultDNSServers is used when a query specifies no servers of its own.
+var defaultDNSServers = []string{"8.8.8.8:53", "1.1.1.1:53"}
+
+// DNSQuery is a single domain to resolve together with the servers to use.
+// An empty Servers list falls back to defaultDNSServers.
+type DNSQuery struct {
+	Domain  string
+	Servers []string
 }
 
-func NewDNSCollector(domains, servers []string) *DNSCollector {
-	if len(servers) == 0 {
-		servers = []string{"8.8.8.8:53", "1.1.1.1:53"}
-	}
-	return &DNSCollector{domains: domains, servers: servers}
+type DNSCollector struct {
+	queries []DNSQuery
+}
+
+func NewDNSCollector(queries []DNSQuery) *DNSCollector {
+	return &DNSCollector{queries: queries}
 }
 
 func (c *DNSCollector) Name() string            { return "dns" }
 func (c *DNSCollector) Interval() time.Duration { return 30 * time.Second }
 
 func (c *DNSCollector) Collect(ctx context.Context) (interface{}, error) {
-	results := make([]DNSResult, 0, len(c.domains))
-	for _, domain := range c.domains {
-		r := c.resolve(ctx, domain)
-		results = append(results, r)
+	results := make([]DNSResult, 0, len(c.queries))
+	for _, q := range c.queries {
+		results = append(results, resolve(ctx, q.Domain, serversOrDefault(q.Servers)))
 	}
 	return results, nil
 }
 
-func (c *DNSCollector) resolve(ctx context.Context, domain string) DNSResult {
+// serversOrDefault returns servers unchanged, or the package defaults when empty.
+func serversOrDefault(servers []string) []string {
+	if len(servers) == 0 {
+		return defaultDNSServers
+	}
+	return servers
+}
+
+func resolve(ctx context.Context, domain string, servers []string) DNSResult {
 	result := DNSResult{Domain: domain}
+
+	// usedServer records which configured server actually answered; the Go
+	// resolver may dial A and AAAA concurrently, so guard it with a mutex.
+	var mu sync.Mutex
+	usedServer := servers[0]
 
 	resolver := &net.Resolver{
 		PreferGo: true,
@@ -41,12 +60,15 @@ func (c *DNSCollector) resolve(ctx context.Context, domain string) DNSResult {
 			// Honour the network the resolver asks for ("udp", then "tcp" when a
 			// response is truncated) and fall back across all configured servers.
 			var lastErr error
-			for _, server := range c.servers {
+			for _, server := range servers {
 				if !strings.Contains(server, ":") {
 					server += ":53"
 				}
 				conn, err := dialer.DialContext(ctx, network, server)
 				if err == nil {
+					mu.Lock()
+					usedServer = server
+					mu.Unlock()
 					return conn, nil
 				}
 				lastErr = err
@@ -54,12 +76,15 @@ func (c *DNSCollector) resolve(ctx context.Context, domain string) DNSResult {
 			return nil, lastErr
 		},
 	}
-	result.Server = c.servers[0]
 
 	start := time.Now()
 
 	ips, err := resolver.LookupIPAddr(ctx, domain)
 	result.Elapsed = time.Since(start)
+
+	// All Lookup* calls below block until their dials finish, so reading
+	// usedServer here is safe without holding the lock.
+	result.Server = usedServer
 
 	if err != nil {
 		result.Error = err.Error()
@@ -89,11 +114,15 @@ func (c *DNSCollector) resolve(ctx context.Context, domain string) DNSResult {
 		result.CNAMERecord = cname
 	}
 
+	// Later lookups may have switched servers; report the most recent one.
+	mu.Lock()
+	result.Server = usedServer
+	mu.Unlock()
+
 	return result
 }
 
 // ResolveOnce resolves a single domain on-demand (for interactive DNS view).
 func ResolveOnce(ctx context.Context, domain string, servers []string) DNSResult {
-	c := NewDNSCollector([]string{domain}, servers)
-	return c.resolve(ctx, domain)
+	return resolve(ctx, domain, serversOrDefault(servers))
 }
