@@ -4,7 +4,7 @@
 
 ```
  ⬡ NETSORYN                                                         dev
- <1> DASH  <2> PROC  <3> NET  <4> PORTS  <5> SVC  <6> DOCKER  <7> DNS  <8> HTTP
+ <1> DASH  <2> PROC  <3> NET  <4> PORTS  <5> SVC  <6> DOCKER  <7> DNS  <8> HTTP  <9> TCP
 ╭── Dashboard ────────────────────────────────────────────────────────╮
 │  CPU                                                                │
 │  Total    ████████░░░░░░░░   45.2%                                  │
@@ -26,7 +26,7 @@
 
 | View | Key | What you see |
 |------|-----|--------------|
-| **Dashboard** | `1` | CPU per-core, RAM, swap, disk usage, load avg, uptime |
+| **Dashboard** | `1` | CPU per-core, RAM, swap, disk usage + I/O, load avg, uptime |
 | **Processes** | `2` | Top processes by CPU/MEM, sortable, filterable |
 | **Network** | `3` | Interfaces + I/O, active connections |
 | **Ports** | `4` | Open/listening ports with owning process |
@@ -34,6 +34,7 @@
 | **Docker** | `6` | Containers — name, image, state, ports |
 | **DNS** | `7` | Interactive DNS resolver (A, AAAA, MX, NS, CNAME) |
 | **HTTP** | `8` | HTTP/TLS endpoint checker with latency and cert info |
+| **TCP** | `9` | Interactive TCP port reachability probe (host:port) |
 
 ## Installation
 
@@ -108,8 +109,8 @@ make install # install to $GOPATH/bin
 | `Esc` | Clear filter / close input |
 | `s` | Cycle sort column (processes view) |
 | `h` / `←` / `l` / `→` | Switch sub-tabs (network view) |
-| `n` | New query (DNS / HTTP views) |
-| `D` / `d` | Remove first result (DNS / HTTP views) |
+| `n` | New query (DNS / HTTP / TCP views) |
+| `D` / `d` | Remove first result (DNS / HTTP / TCP views) |
 | `?` | Toggle help overlay |
 | `q` | Quit |
 
