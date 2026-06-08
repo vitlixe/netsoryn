@@ -39,7 +39,7 @@ func TestSystemCollector(t *testing.T) {
 }
 
 func TestProcessCollector(t *testing.T) {
-	c := NewProcessCollector(10)
+	c := NewProcessCollector()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

@@ -8,15 +8,10 @@ import (
 	"github.com/shirou/gopsutil/v3/process"
 )
 
-type ProcessCollector struct {
-	limit int
-}
+type ProcessCollector struct{}
 
-func NewProcessCollector(limit int) *ProcessCollector {
-	if limit <= 0 {
-		limit = 50
-	}
-	return &ProcessCollector{limit: limit}
+func NewProcessCollector() *ProcessCollector {
+	return &ProcessCollector{}
 }
 
 func (c *ProcessCollector) Name() string            { return "process" }

@@ -78,7 +78,7 @@ func NewProcesses(cfg *config.Config, ctx context.Context) *Processes {
 
 func (p *Processes) Init() tea.Cmd {
 	if p.active {
-		return tea.Batch(fetchProcData(p.ctx, p.cfg.ProcessLimit), tickProc(p.cfg.RefreshInterval))
+		return tea.Batch(fetchProcData(p.ctx), tickProc(p.cfg.RefreshInterval))
 	}
 	return tickProc(p.cfg.RefreshInterval)
 }
@@ -88,7 +88,7 @@ func (p *Processes) Init() tea.Cmd {
 func (p *Processes) SetActive(active bool) tea.Cmd {
 	p.active = active
 	if active {
-		return fetchProcData(p.ctx, p.cfg.ProcessLimit)
+		return fetchProcData(p.ctx)
 	}
 	return nil
 }
@@ -116,7 +116,7 @@ func (p *Processes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !p.active {
 			return p, tickProc(p.cfg.RefreshInterval)
 		}
-		return p, tea.Batch(fetchProcData(p.ctx, p.cfg.ProcessLimit), tickProc(p.cfg.RefreshInterval))
+		return p, tea.Batch(fetchProcData(p.ctx), tickProc(p.cfg.RefreshInterval))
 
 	case tea.KeyMsg:
 		if p.filtering {
@@ -301,9 +301,9 @@ func procColumns(w int) []table.Column {
 	}
 }
 
-func fetchProcData(ctx context.Context, limit int) tea.Cmd {
+func fetchProcData(ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		c := collectors.NewProcessCollector(limit)
+		c := collectors.NewProcessCollector()
 		raw, err := c.Collect(ctx)
 		if err != nil {
 			return procDataMsg{err: err}
