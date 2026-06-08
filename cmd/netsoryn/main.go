@@ -57,6 +57,7 @@ processes, services, Docker containers, DNS, HTTP endpoints and more.`,
 	root.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: ~/.config/netsoryn/config.yaml)")
 
 	root.AddCommand(versionCmd())
+	root.AddCommand(dumpCmd())
 
 	return root
 }
