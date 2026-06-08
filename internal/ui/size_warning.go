@@ -11,7 +11,7 @@ import (
 
 const (
 	MinWidth  = 98
-	MinHeight = 24
+	MinHeight = 26
 )
 
 func tooSmall(w, h int) bool {
