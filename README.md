@@ -4,7 +4,7 @@
 
 ```
  ⬡ NETSORYN                                                         dev
- <1> DASH  <2> PROC  <3> NET  <4> PORTS  <5> SVC  <6> DOCKER  <7> DNS  <8> HTTP  <9> TCP
+ <1> DASH  <2> PROC  <3> NET  <4> PORTS  <5> SVC  <6> DCKR  <7> DNS  <8> HTTP  <9> TCP  <0> SSH
 ╭── Dashboard ────────────────────────────────────────────────────────╮
 │  CPU                                                                │
 │  Total    ████████░░░░░░░░   45.2%                                  │
@@ -35,6 +35,7 @@
 | **DNS** | `7` | Interactive DNS resolver (A, AAAA, MX, NS, CNAME) |
 | **HTTP** | `8` | HTTP/TLS endpoint checker with latency and cert info |
 | **TCP** | `9` | Interactive TCP port reachability probe (host:port) |
+| **SSH** | `0` | Configured SSH hosts; connect or run a remote Netsoryn dump |
 
 ## Installation
 
@@ -100,7 +101,7 @@ make install # install to $GOPATH/bin
 
 | Key | Action |
 |-----|--------|
-| `1`–`8` | Jump to view |
+| `1`–`9` / `0` | Jump to view |
 | `Tab` / `Shift+Tab` | Cycle views |
 | `j` / `k` | Navigate down / up |
 | `g` / `G` | Jump to top / bottom |
@@ -111,6 +112,8 @@ make install # install to $GOPATH/bin
 | `h` / `←` / `l` / `→` | Switch sub-tabs (network view) |
 | `n` | New query (DNS / HTTP / TCP views) |
 | `D` / `d` | Remove first result (DNS / HTTP / TCP views) |
+| `a` | Add host (SSH view) |
+| `Enter` | Connect to selected host (SSH view) |
 | `?` | Toggle help overlay |
 | `q` | Quit |
 
@@ -152,9 +155,30 @@ http_checks:
 dns_checks:
   - domain: "example.com"
     servers: ["8.8.8.8:53", "1.1.1.1:53"]
+
+ssh_hosts:
+  - name: "prod"
+    host: "prod.example.com"
+    user: "deploy"
+    key: "~/.ssh/prod_ed25519"
+    options: ["-o", "StrictHostKeyChecking=accept-new"]
 ```
 
 See `configs/netsoryn.example.yaml` for all options.
+
+## SSH helpers
+
+Netsoryn can use configured SSH host aliases for quick read-only diagnostics. It does not implement SSH itself or store passwords — it executes your system `ssh` binary, so keys, agents, passphrases, and `known_hosts` stay under OpenSSH control. In the TUI, open the SSH view with `0`, press `a` to add a host, select a host with `j/k`, press `Enter` to connect, or `d` to run `netsoryn dump -f text --sections system,ports,services` remotely.
+
+```bash
+netsoryn ssh list
+netsoryn ssh prod
+netsoryn ssh prod -- uname -a
+netsoryn ssh dump prod -f text
+netsoryn ssh dump prod --sections system,ports,services --pretty
+```
+
+`netsoryn dump` defaults to the `system` section. Use `--sections system,ports,processes,network,services,docker` or `--sections all` for broader snapshots.
 
 ## Project Structure
 
@@ -163,7 +187,7 @@ netsoryn/
 ├── cmd/netsoryn/        # entry point (cobra CLI)
 ├── internal/
 │   ├── config/          # viper-based config loading
-│   ├── collectors/      # data sources (implement Collector interface)
+│   ├── collectors/      # data sources
 │   │   ├── system.go    # CPU, memory, disk, load (gopsutil)
 │   │   ├── process.go   # process list (gopsutil)
 │   │   ├── network.go   # interfaces + connections (gopsutil)

@@ -31,7 +31,7 @@ make lint    # run golangci-lint
 
 ## Adding a collector
 
-1. Implement `collectors.Collector` in `internal/collectors/`.
+1. Add a concrete collector type in `internal/collectors/` with `Name`, `Interval`, and `Collect`.
 2. Add a view in `internal/ui/views/` with a matching `tea.Model`.
 3. Register the view in `internal/ui/model.go`.
 
