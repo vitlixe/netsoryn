@@ -43,89 +43,89 @@ type DiskIOStat struct {
 
 // ProcessData holds a snapshot of running processes.
 type ProcessData struct {
-	Processes []ProcessStat
+	Processes []ProcessStat `json:"processes"`
 }
 
 type ProcessStat struct {
-	PID        int32
-	Name       string
-	Username   string
-	CPUPercent float64
-	CPUTime    float64 // cumulative CPU seconds; used to derive instantaneous CPUPercent
-	MemPercent float32
-	MemRSS     uint64
-	Status     string
-	Threads    int32
-	Command    string
+	PID        int32   `json:"pid"`
+	Name       string  `json:"name"`
+	Username   string  `json:"username"`
+	CPUPercent float64 `json:"cpu_percent"`
+	CPUTime    float64 `json:"cpu_time"` // cumulative CPU seconds; used to derive instantaneous CPUPercent
+	MemPercent float32 `json:"mem_percent"`
+	MemRSS     uint64  `json:"mem_rss"`
+	Status     string  `json:"status"`
+	Threads    int32   `json:"threads"`
+	Command    string  `json:"command"`
 }
 
 // NetworkData holds interface stats and active connections.
 type NetworkData struct {
-	Interfaces  []NetInterface
-	Connections []NetConnection
+	Interfaces  []NetInterface  `json:"interfaces"`
+	Connections []NetConnection `json:"connections"`
 }
 
 type NetInterface struct {
-	Name        string
-	Addresses   []string
-	BytesSent   uint64
-	BytesRecv   uint64
-	PacketsSent uint64
-	PacketsRecv uint64
-	Flags       []string
+	Name        string   `json:"name"`
+	Addresses   []string `json:"addresses"`
+	BytesSent   uint64   `json:"bytes_sent"`
+	BytesRecv   uint64   `json:"bytes_recv"`
+	PacketsSent uint64   `json:"packets_sent"`
+	PacketsRecv uint64   `json:"packets_recv"`
+	Flags       []string `json:"flags"`
 }
 
 type NetConnection struct {
-	Protocol    string
-	LocalAddr   string
-	RemoteAddr  string
-	State       string
-	PID         int32
-	ProcessName string
+	Protocol    string `json:"protocol"`
+	LocalAddr   string `json:"local_addr"`
+	RemoteAddr  string `json:"remote_addr"`
+	State       string `json:"state"`
+	PID         int32  `json:"pid"`
+	ProcessName string `json:"process_name"`
 }
 
 // PortData holds listening ports with their owning processes.
 type PortData struct {
-	Ports []PortStat
+	Ports []PortStat `json:"ports"`
 }
 
 type PortStat struct {
-	Port     uint32
-	Protocol string
-	Address  string
-	PID      int32
-	Process  string
-	State    string
+	Port     uint32 `json:"port"`
+	Protocol string `json:"protocol"`
+	Address  string `json:"address"`
+	PID      int32  `json:"pid"`
+	Process  string `json:"process"`
+	State    string `json:"state"`
 }
 
 // ServiceData holds systemd (or launchd) service states.
 type ServiceData struct {
-	Services []ServiceStat
-	Platform string
+	Services []ServiceStat `json:"services"`
+	Platform string        `json:"platform"`
 }
 
 type ServiceStat struct {
-	Name        string
-	LoadState   string
-	ActiveState string
-	SubState    string
-	Description string
+	Name        string `json:"name"`
+	LoadState   string `json:"load_state"`
+	ActiveState string `json:"active_state"`
+	SubState    string `json:"sub_state"`
+	Description string `json:"description"`
 }
 
 // DockerData holds container info.
 type DockerData struct {
-	Containers []ContainerStat
-	Available  bool
+	Containers []ContainerStat `json:"containers"`
+	Available  bool            `json:"available"`
 }
 
 type ContainerStat struct {
-	ID      string
-	Name    string
-	Image   string
-	Status  string
-	State   string
-	Ports   string
-	Created string
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Image   string `json:"image"`
+	Status  string `json:"status"`
+	State   string `json:"state"`
+	Ports   string `json:"ports"`
+	Created string `json:"created"`
 }
 
 // DNSResult holds DNS resolution results for a single domain.
