@@ -187,6 +187,146 @@ tcp_checks:
 	}
 }
 
+func TestLoad_ParsesSSHHosts(t *testing.T) {
+	cfg := loadConfigFromString(t, `
+refresh_interval: 2
+ssh_hosts:
+  - name: "prod"
+    host: "10.0.0.5"
+    user: "deploy"
+    port: 2222
+    key: "~/.ssh/prod_ed25519"
+    options:
+      - "-o"
+      - "StrictHostKeyChecking=accept-new"
+  - name: "staging"
+    host: "staging.example.com"
+`)
+	if len(cfg.SSHHosts) != 2 {
+		t.Fatalf("SSHHosts len = %d, want 2", len(cfg.SSHHosts))
+	}
+	if got := cfg.SSHHosts[0]; got.Name != "prod" || got.Host != "10.0.0.5" || got.User != "deploy" || got.Port != 2222 || got.Key != "~/.ssh/prod_ed25519" {
+		t.Errorf("SSHHosts[0] = %+v, want populated prod host", got)
+	}
+	if got := cfg.SSHHosts[0].Options; len(got) != 2 || got[0] != "-o" || got[1] != "StrictHostKeyChecking=accept-new" {
+		t.Errorf("SSHHosts[0].Options = %#v, want ssh options", got)
+	}
+	if got := cfg.SSHHosts[1].Port; got != 22 {
+		t.Errorf("SSHHosts[1].Port = %d, want default 22", got)
+	}
+}
+
+func TestLoad_RecordsConfigFile(t *testing.T) {
+	path := writeConfig(t, `refresh_interval: 2`)
+	cfg := loadConfigFromPath(t, path)
+	if cfg.ConfigFile != path {
+		t.Fatalf("ConfigFile = %q, want %q", cfg.ConfigFile, path)
+	}
+}
+
+func TestAddSSHHost_CreatesConfigFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "netsoryn", "config.yaml")
+	cfg := &Config{ConfigFile: path, RefreshInterval: 2 * time.Second, ProcessLimit: 50, PortsListenOnly: true}
+
+	written, err := AddSSHHost(cfg, SSHHost{Name: "prod", Host: "prod.example.com", User: "deploy"})
+	if err != nil {
+		t.Fatalf("AddSSHHost returned error: %v", err)
+	}
+	if written != path {
+		t.Fatalf("written path = %q, want %q", written, path)
+	}
+
+	reloaded := loadConfigFromPath(t, path)
+	if len(reloaded.SSHHosts) != 1 {
+		t.Fatalf("SSHHosts len = %d, want 1", len(reloaded.SSHHosts))
+	}
+	if got := reloaded.SSHHosts[0]; got.Name != "prod" || got.Host != "prod.example.com" || got.User != "deploy" || got.Port != 22 {
+		t.Fatalf("reloaded SSH host = %+v, want saved prod host with default port", got)
+	}
+}
+
+func TestAddSSHHost_AppendsAndPreservesExistingKeys(t *testing.T) {
+	path := writeConfig(t, `
+refresh_interval: 7
+ssh_hosts:
+  - name: "alpha"
+    host: "alpha.example.com"
+`)
+	cfg := loadConfigFromPath(t, path)
+
+	if _, err := AddSSHHost(cfg, SSHHost{Name: "beta", Host: "beta.example.com", Port: 2222, Options: []string{"-o", "BatchMode=yes"}}); err != nil {
+		t.Fatalf("AddSSHHost returned error: %v", err)
+	}
+
+	reloaded := loadConfigFromPath(t, path)
+	if reloaded.RefreshInterval != 7*time.Second {
+		t.Fatalf("RefreshInterval = %v, want 7s", reloaded.RefreshInterval)
+	}
+	if len(reloaded.SSHHosts) != 2 {
+		t.Fatalf("SSHHosts len = %d, want 2", len(reloaded.SSHHosts))
+	}
+	if got := reloaded.SSHHosts[1]; got.Name != "beta" || got.Port != 2222 || len(got.Options) != 2 {
+		t.Fatalf("second SSH host = %+v, want saved beta host", got)
+	}
+}
+
+func TestAddSSHHost_RejectsDuplicate(t *testing.T) {
+	path := writeConfig(t, `
+refresh_interval: 2
+ssh_hosts:
+  - name: "prod"
+    host: "prod.example.com"
+`)
+	cfg := loadConfigFromPath(t, path)
+
+	if _, err := AddSSHHost(cfg, SSHHost{Name: "prod", Host: "other.example.com"}); err == nil {
+		t.Fatal("AddSSHHost returned nil error, want duplicate host error")
+	}
+}
+
+func TestLoad_RejectsInvalidSSHHosts(t *testing.T) {
+	cases := []string{
+		`
+refresh_interval: 2
+ssh_hosts:
+  - host: "example.com"
+`,
+		`
+refresh_interval: 2
+ssh_hosts:
+  - name: "prod"
+`,
+		`
+refresh_interval: 2
+ssh_hosts:
+  - name: "prod"
+    host: "one.example.com"
+  - name: "prod"
+    host: "two.example.com"
+`,
+		`
+refresh_interval: 2
+ssh_hosts:
+  - name: "prod"
+    host: "example.com"
+    port: -1
+`,
+		`
+refresh_interval: 2
+ssh_hosts:
+  - name: "prod"
+    host: "example.com"
+    port: 70000
+`,
+	}
+	for _, yaml := range cases {
+		path := writeConfig(t, yaml)
+		if _, err := Load(path); err == nil {
+			t.Errorf("Load returned nil error for %q, want invalid ssh_hosts error", yaml)
+		}
+	}
+}
+
 func TestLoad_EnvVarDurationString(t *testing.T) {
 	t.Setenv("NETSORYN_REFRESH_INTERVAL", "500ms")
 	cfg := loadConfigFromString(t, ``)
@@ -199,6 +339,11 @@ func loadConfigFromString(t *testing.T, content string) *Config {
 	t.Helper()
 
 	path := writeConfig(t, content)
+	return loadConfigFromPath(t, path)
+}
+
+func loadConfigFromPath(t *testing.T, path string) *Config {
+	t.Helper()
 
 	cfg, err := Load(path)
 	if err != nil {

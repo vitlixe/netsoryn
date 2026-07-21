@@ -30,6 +30,7 @@ const (
 	ViewDNS
 	ViewHTTP
 	ViewTCP
+	ViewSSH
 	numViews
 )
 
@@ -43,10 +44,11 @@ var viewMeta = [numViews]struct {
 	{"3", "NET", "Network"},
 	{"4", "PORTS", "Ports"},
 	{"5", "SVC", "Services"},
-	{"6", "DOCKER", "Docker"},
+	{"6", "DCKR", "Docker"},
 	{"7", "DNS", "DNS"},
 	{"8", "HTTP", "HTTP"},
 	{"9", "TCP", "TCP Port"},
+	{"0", "SSH", "SSH"},
 }
 
 // RootModel is the top-level bubbletea model.
@@ -77,6 +79,7 @@ func New(cfg *config.Config, version string) RootModel {
 	vms[ViewDNS] = views.NewDNS(cfg, ctx)
 	vms[ViewHTTP] = views.NewHTTP(cfg, ctx)
 	vms[ViewTCP] = views.NewTCP(cfg, ctx)
+	vms[ViewSSH] = views.NewSSH(cfg)
 
 	defaultView := ViewDashboard
 	switch strings.ToLower(cfg.DefaultView) {
@@ -96,6 +99,8 @@ func New(cfg *config.Config, version string) RootModel {
 		defaultView = ViewHTTP
 	case "tcp":
 		defaultView = ViewTCP
+	case "ssh":
+		defaultView = ViewSSH
 	}
 
 	// Only the starting view collects on launch; the rest resume when first
@@ -238,6 +243,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.switchTo(ViewHTTP)
 		case "9":
 			return m.switchTo(ViewTCP)
+		case "0":
+			return m.switchTo(ViewSSH)
 		}
 		if key.Matches(msg, m.globalKeys.Tab) {
 			return m.switchTo((m.active + 1) % numViews)
@@ -406,6 +413,7 @@ var viewsWithNav = map[ViewID]bool{
 	ViewPorts:     true,
 	ViewServices:  true,
 	ViewDocker:    true,
+	ViewSSH:       true,
 }
 
 // viewsWithFilter are views where / filter is active.
@@ -440,6 +448,9 @@ func (m RootModel) renderFooter() string {
 	}
 	if m.active == ViewTCP {
 		hints = append(hints, hint{"n", "new check"})
+	}
+	if m.active == ViewSSH {
+		hints = append(hints, hint{"a", "add"}, hint{"enter", "connect"}, hint{"d", "dump"})
 	}
 	if m.active == ViewDNS || m.active == ViewHTTP || m.active == ViewTCP {
 		hints = append(hints, hint{"j/k", "scroll"})
@@ -480,7 +491,7 @@ func (m RootModel) renderHelp() string {
 
 	type entry struct{ k, d string }
 	nav := []entry{
-		{"<1-9>", "Switch view"},
+		{"<1-9>/<0>", "Switch view"},
 		{"<tab>", "Next view"},
 		{"<shift+tab>", "Prev view"},
 		{"<j> / <k>", "Navigate (list/table views)"},

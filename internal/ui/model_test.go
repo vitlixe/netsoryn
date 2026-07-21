@@ -70,6 +70,15 @@ func TestKeyRouting_DigitSwitchesViewWhenNotCapturing(t *testing.T) {
 	}
 }
 
+func TestKeyRouting_ZeroSwitchesToSSHWhenNotCapturing(t *testing.T) {
+	m := newTestModel(ViewDashboard)
+	updated, _ := m.Update(rune1('0'))
+	rm := updated.(RootModel)
+	if rm.active != ViewSSH {
+		t.Errorf("zero key did not switch to SSH when idle: active=%d, want %d", rm.active, ViewSSH)
+	}
+}
+
 func TestSwitchTo_ChangesActiveAndRefreshes(t *testing.T) {
 	m := newTestModel(ViewDashboard)
 	m2, cmd := m.switchTo(ViewProcesses)
@@ -103,6 +112,15 @@ func TestFooterDashboard_NoNavFilterSortRefresh(t *testing.T) {
 		if strings.Contains(footer, unwanted) {
 			t.Errorf("Dashboard footer should not contain %q, got: %s", unwanted, footer)
 		}
+	}
+}
+
+func TestTabBar_FitsMinimumWidth(t *testing.T) {
+	m := newTestModel(ViewDashboard)
+	m.width = MinWidth
+	tabBar := m.renderTabBar()
+	if w := lipgloss.Width(tabBar); w != MinWidth {
+		t.Fatalf("tab bar width = %d, want %d; output: %q", w, MinWidth, tabBar)
 	}
 }
 
@@ -158,6 +176,15 @@ func TestFooterHTTP_HasNewCheckHint(t *testing.T) {
 	}
 	if !strings.Contains(footer, "check") {
 		t.Errorf("HTTP footer should contain check hint, got: %s", footer)
+	}
+}
+
+func TestFooterSSH_HasConnectAndDumpHints(t *testing.T) {
+	footer := newTestModel(ViewSSH).renderFooter()
+	for _, want := range []string{"navigate", "add", "connect", "dump"} {
+		if !strings.Contains(footer, want) {
+			t.Errorf("SSH footer should contain %q, got: %s", want, footer)
+		}
 	}
 }
 
@@ -242,6 +269,8 @@ func TestFooterSortHint_OnlyInProcesses(t *testing.T) {
 		{ViewDocker, false},
 		{ViewDNS, false},
 		{ViewHTTP, false},
+		{ViewTCP, false},
+		{ViewSSH, false},
 	}
 
 	for _, tc := range views {

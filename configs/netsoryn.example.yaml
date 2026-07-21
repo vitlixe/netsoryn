@@ -10,7 +10,7 @@
 # Refresh interval for live data (seconds)
 refresh_interval: 2
 
-# Default view on startup: dashboard, processes, network, ports, services, docker, dns, http, tcp
+# Default view on startup: dashboard, processes, network, ports, services, docker, dns, http, tcp, ssh
 default_view: dashboard
 
 # Log level: debug, info, warn, error, disabled
@@ -45,6 +45,19 @@ tcp_checks:
   - target: "github.com:443"
     timeout: 3
   - target: "localhost:5432"
+
+# SSH hosts: aliases used by `netsoryn ssh ...`.
+# Netsoryn shells out to the system ssh binary; passwords/passphrases stay in
+# OpenSSH, ssh-agent, and your normal known_hosts flow.
+ssh_hosts:
+  - name: "prod"
+    host: "prod.example.com"
+    user: "deploy"
+    port: 22
+    key: "~/.ssh/prod_ed25519"
+    options:
+      - "-o"
+      - "StrictHostKeyChecking=accept-new"
 
 # Docker: socket path override (empty = Docker default / DOCKER_HOST env)
 # Examples:

@@ -16,6 +16,8 @@ type GlobalKeyMap struct {
 	View6   key.Binding
 	View7   key.Binding
 	View8   key.Binding
+	View9   key.Binding
+	View0   key.Binding
 }
 
 // DefaultGlobalKeyMap returns the default global key bindings.
@@ -45,6 +47,8 @@ func DefaultGlobalKeyMap() GlobalKeyMap {
 		View6: numKey("6"),
 		View7: numKey("7"),
 		View8: numKey("8"),
+		View9: numKey("9"),
+		View0: numKey("0"),
 	}
 }
 
@@ -120,7 +124,7 @@ func DefaultNavKeyMap() NavKeyMap {
 // HelpEntries returns a formatted list of global shortcuts for the help overlay.
 func HelpEntries() [][2]string {
 	return [][2]string{
-		{"1-9", "Switch view"},
+		{"1-9/0", "Switch view"},
 		{"tab", "Next view"},
 		{"shift+tab", "Prev view"},
 		{"j/k", "Navigate down/up"},

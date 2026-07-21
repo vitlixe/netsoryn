@@ -58,6 +58,7 @@ processes, services, Docker containers, DNS, HTTP endpoints and more.`,
 
 	root.AddCommand(versionCmd())
 	root.AddCommand(dumpCmd(&cfgFile))
+	root.AddCommand(sshCmd(&cfgFile))
 
 	return root
 }
